@@ -57,6 +57,7 @@ import { getDataOwnerGeneration } from '@/contexts/dataOwnerGeneration';
 import { createPortal, flushSync } from 'react-dom';
 import { GitFork } from 'lucide-react';
 import { SelectionQuoteButton } from './SelectionQuoteButton';
+import { copyChatSelection } from './chatSelectionClipboard';
 import {
   groupWorkRuns,
   isCompletedAssistantMessage,
@@ -6389,6 +6390,7 @@ export function MessageStream({
             <div
               ref={scrollRef}
               data-scroll-container=""
+              onCopy={copyChatSelection}
               className="h-full w-full overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]"
               onScroll={handleScroll}
               onPointerDownCapture={() => refreshViewportAnchor()}
