@@ -894,6 +894,7 @@ function LightboxImage({
   return (
     <>
       <button
+        data-chat-image-preview
         type="button"
         aria-label={zoomLabel}
         title={t('chat.media.clickToZoom')}

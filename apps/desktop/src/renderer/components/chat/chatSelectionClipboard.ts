@@ -58,6 +58,14 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     // allowlisted declaration so user-message newlines/indentation survive HTML paste.
     const whitespace = whitespaceOf(element);
     if (preservesWhitespace(whitespace)) copy.setAttribute('style', `white-space: ${whitespace};`);
+    if (element.matches('[data-chat-image-preview] img')) {
+      // The image is content; the surrounding lightbox button is application
+      // chrome. Keep only its inline sizing limits, never theme declarations.
+      for (const property of ['width', 'height', 'max-width', 'max-height', 'object-fit']) {
+        const value = (element as HTMLImageElement).style.getPropertyValue(property);
+        if (value) (copy as HTMLImageElement).style.setProperty(property, value);
+      }
+    }
     return copy;
   };
   const cloneSelected = (node: Node): Node | null => {
@@ -80,6 +88,13 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return null;
     const element = node as Element;
+    if (element.matches('[data-chat-video-preview]')) {
+      // A native video preview cannot be represented by a detached play icon.
+      // Omit the complete preview from mixed text copying; its own media copy
+      // action and image/media-only native-copy fallback remain separate.
+      needsRenderedPlainText = true;
+      return null;
+    }
     if (styleOf(element).display === 'none' || styleOf(element).contentVisibility === 'hidden') return null;
     if (styleOf(element).opacity === '0') {
       // Hover-only controls must not become visible after theme classes are
@@ -162,6 +177,14 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
       // Unicode markers survive HTML consumers that discard form controls.
       needsRenderedPlainText = true;
       return doc.createTextNode((element as HTMLInputElement).checked ? '☑' : '☐');
+    }
+    if (element.matches('button[data-chat-image-preview]')) {
+      const children = doc.createDocumentFragment();
+      for (const child of element.childNodes) {
+        const selected = cloneSelected(child);
+        if (selected) children.appendChild(selected);
+      }
+      return children.hasChildNodes() ? children : null;
     }
     const copy = shell(element);
     for (const child of element.childNodes) {

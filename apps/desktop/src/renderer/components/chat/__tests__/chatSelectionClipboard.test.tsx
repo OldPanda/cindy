@@ -301,6 +301,34 @@ describe('chat selection clipboard', () => {
     expect(html).not.toMatch(/class=|color:|font-family:|stroke:/);
   });
 
+  it('omits a video preview together with its play overlay from a mixed text selection', () => {
+    const { select, copy } = setup('<p>before</p><div data-chat-video-preview role="button" aria-label="clip.mp4"><video src="https://example.com/clip.mp4"></video><div aria-hidden="true"><svg class="lucide lucide-play"><path d="M0 0L10 5L0 10Z"/></svg></div></div><p>after</p>');
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    expect(html).toBe('<p>before</p><p>after</p>');
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')?.[1];
+    expect(plain).toContain('before');expect(plain).toContain('after');
+    expect(plain).not.toContain('clip.mp4');
+  });
+
+  it('unwraps a lightbox image trigger and preserves only image sizing in a mixed selection', () => {
+    const { select, copy } = setup('<p>before</p><button data-chat-image-preview type="button" style="padding:0;border:0;background:transparent"><span><img src="https://example.com/photo.png" alt="photo" style="max-width:min(100%, 50vw, 480px);max-height:min(40vh, 420px);height:auto;background:red;color:purple"/></span></button><p>after</p>');
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div');pasted.innerHTML = html;
+    expect(pasted.querySelector('button, [role="button"]')).toBeNull();
+    const image = pasted.querySelector('img')!;
+    expect(image.getAttribute('src')).toBe('https://example.com/photo.png');
+    expect(image.alt).toBe('photo');
+    expect(image.style.maxWidth).toBe('min(100%, 50vw, 480px)');
+    expect(image.style.maxHeight).toBe('min(40vh, 420px)');
+    expect(image.style.height).toBe('auto');
+    expect(html).not.toMatch(/background|color:|class=/);
+    expect(pasted.textContent).toBe('beforeafter');
+  });
+
   it.each(['textarea', 'input', 'div contenteditable="true"'])('leaves %s editing to native copy', (tag) => {
     const { root, select, copy } = setup(`<${tag}>draft</${tag.split(' ')[0]}>`);
     select(root.firstChild!);
