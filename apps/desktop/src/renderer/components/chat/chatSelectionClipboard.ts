@@ -30,6 +30,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   if (!text) return;
 
   const doc = container.ownerDocument;
+  let omittedDisclosureBody = false;
   const styles = new Map<Element, CSSStyleDeclaration>();
   const styleOf = (element: Element): CSSStyleDeclaration => {
     let style = styles.get(element);
@@ -61,6 +62,14 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   };
   const cloneSelected = (node: Node): Node | null => {
     if (!range.intersectsNode(node)) return null;
+    // Closed disclosures hide their body through UA rendering, not computed
+    // display/visibility. Only their first direct summary is rendered.
+    const parent = node.parentElement;
+    if (parent?.matches('details:not([open])') &&
+        node !== [...parent.children].find(child => child.matches('summary'))) {
+      omittedDisclosureBody = true;
+      return null;
+    }
     if (node.nodeType === Node.TEXT_NODE) {
       const parent = node.parentElement!;
       if (['hidden', 'collapse'].includes(inheritedStyle(parent, 'visibility')) ||
@@ -72,12 +81,29 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     if (node.nodeType !== Node.ELEMENT_NODE) return null;
     const element = node as Element;
     if (styleOf(element).display === 'none' || styleOf(element).contentVisibility === 'hidden') return null;
+    if (element.matches('.katex')) {
+      const math = element.querySelector('.katex-mathml > math');
+      const visual = element.querySelector('.katex-html');
+      if (math && visual && range.comparePoint(math, 0) === 0 &&
+          range.comparePoint(math, math.childNodes.length) === 0) {
+        // KaTeX's clipped accessibility MathML and its visual layout describe
+        // the same equation. Export just the semantic tree, without unwrapping
+        // the visual spans into a second, unstyled equation. Visual-only partial
+        // selections continue through the normal range-aware path below.
+        const copy = math.cloneNode(true) as Element;
+        for (const part of [copy, ...copy.querySelectorAll('*')]) {
+          for (const attribute of ['style', 'class', 'bgcolor', 'color']) part.removeAttribute(attribute);
+        }
+        return copy;
+      }
+    }
     const copy = shell(element);
     for (const child of element.childNodes) {
       const selected = cloneSelected(child);
       if (selected) copy.appendChild(selected);
     }
-    if (!copy.hasChildNodes() && !element.matches('br, img')) return null;
+    // Empty cells carry column coordinates even when they contain no text.
+    if (!copy.hasChildNodes() && !element.matches('br, img, th, td')) return null;
     if (!copy.hasChildNodes() && (['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) ||
         inheritedStyle(element, 'user-select') === 'none')) return null;
     return copy;
@@ -86,9 +112,10 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   const content = doc.createElement('div');
   let fragment: Node = doc.createDocumentFragment();
   const common = range.commonAncestorContainer;
+  const commonIsEquation = common.nodeType === Node.ELEMENT_NODE && (common as Element).matches('.katex');
   // Walk the original selected DOM before stripping styles. cloneContents would
   // resurrect hidden measurement mirrors and non-selectable quote summaries.
-  for (const node of common.nodeType === Node.TEXT_NODE ? [common] : common.childNodes) {
+  for (const node of common.nodeType === Node.TEXT_NODE || commonIsEquation ? [common] : common.childNodes) {
     const selected = cloneSelected(node);
     if (selected) fragment.appendChild(selected);
   }
@@ -97,6 +124,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   let ancestor = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
     ? range.commonAncestorContainer as Element
     : range.commonAncestorContainer.parentElement;
+  if (commonIsEquation) ancestor = common.parentElement;
   while (ancestor && ancestor !== container) {
     if (ancestor.matches(SEMANTIC_CONTAINER_SELECTOR) || preservesWhitespace(whitespaceOf(ancestor))) {
       const wrapper = shell(ancestor);
@@ -108,7 +136,24 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   content.append(fragment);
   // Supplying our own HTML prevents Chromium from inlining ancestor backgrounds.
 
-  event.clipboardData.setData('text/plain', text);
+  let plainText = text;
+  if (omittedDisclosureBody) {
+    // Chromium Selection.toString() can include a closed details body even
+    // though native copy excludes it. Read the filtered fragment's rendered
+    // text so the plain flavor cannot disclose fields omitted from the HTML.
+    // Layout is needed for paragraph/table separators; never change the source.
+    const staging = doc.createElement('div');
+    staging.setAttribute('aria-hidden', 'true');
+    staging.style.cssText = 'position:fixed;left:-100000px;top:0;';
+    staging.appendChild(content);
+    try {
+      doc.body.appendChild(staging);
+      plainText = content.innerText ?? content.textContent ?? '';
+    } finally {
+      staging.remove();
+    }
+  }
+  event.clipboardData.setData('text/plain', plainText);
   event.clipboardData.setData('text/html', content.innerHTML);
   event.preventDefault();
 }

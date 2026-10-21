@@ -2,6 +2,7 @@
 
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import katex from 'katex';
 import { copyChatSelection } from '../chatSelectionClipboard';
 
 // Regression: selecting chat text and copying to a rich-text editor carries
@@ -95,6 +96,49 @@ describe('chat selection clipboard', () => {
     expect(html).toContain('<code role="button">file.ts</code>');
     expect(html).toContain('start');
     expect(html).toContain('end');
+  });
+
+  // Review regressions: HTML consumers must keep table coordinates, omit
+  // collapsed mail-history fields, and receive one equation representation.
+  // Tier: renderer unit, exercising the production copy event entry point.
+  it('preserves empty header and body cells without shifting later columns', () => {
+    const { select, copy } = setup('<table><thead><tr><th>A</th><th></th><th>C</th></tr></thead><tbody><tr><td>1</td><td></td><td>3</td></tr></tbody></table>');
+    select();
+    const html = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    expect([...pasted.querySelectorAll('tr')].map(row => [...row.children].map(cell => cell.textContent)))
+      .toEqual([['A', '', 'C'], ['1', '', '3']]);
+  });
+
+  it.each([false, true])('copies only rendered disclosure content (open=%s)', (open) => {
+    const { select, copy } = setup(`<p>before</p><details${open ? ' open' : ''}><summary>mail updated</summary><dl><dt>to</dt><dd>recipient@example.com</dd></dl><summary>secondary summary</summary></details><p>after</p>`);
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')?.[1];
+    expect(html).toContain('mail updated');
+    expect(html).toContain('before');
+    expect(html).toContain('after');
+    expect(html.includes('recipient@example.com')).toBe(open);
+    expect(html.includes('secondary summary')).toBe(open);
+    expect(plain.includes('recipient@example.com')).toBe(open);
+    expect(plain.includes('secondary summary')).toBe(open);
+  });
+
+  it.each([false, true])('exports a rendered KaTeX equation once as semantic MathML (equation only=%s)', (equationOnly) => {
+    const equation = katex.renderToString('x^2 + y^2');
+    const { root, select, copy } = setup(`<p>before ${equation} after</p>`);
+    select(equationOnly ? root.querySelector('.katex')! : root);
+    const html = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    expect(pasted.querySelectorAll('math')).toHaveLength(1);
+    expect(pasted.querySelector('[aria-hidden="true"]')).toBeNull();
+    expect(pasted.querySelector('annotation')?.textContent).toBe('x^2 + y^2');
+    if (equationOnly) expect(pasted.textContent).not.toMatch(/before|after/);
+    else expect(pasted.textContent).toMatch(/^before .* after$/);
+    expect(html).not.toMatch(/class=|height:|vertical-align:/);
   });
 
   it.each(['textarea', 'input', 'div contenteditable="true"'])('leaves %s editing to native copy', (tag) => {
