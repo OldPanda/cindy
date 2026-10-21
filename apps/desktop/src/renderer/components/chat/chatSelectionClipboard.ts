@@ -119,12 +119,38 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
         range.comparePoint(element, element.childNodes.length) === 0 &&
         !['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) &&
         inheritedStyle(element, 'user-select') !== 'none') {
-      // A complete diagram is content like an image: its scoped stylesheet,
-      // classes and foreignObject layout belong to the drawing, not the chat
-      // host theme. Keep that self-contained presentation as one unit.
+      // Complete content drawings are atomic. Each renderer determines which
+      // presentation belongs to its drawing, rather than the surrounding chat.
       const copy = element.cloneNode(true) as SVGElement;
       const originals = [element, ...element.querySelectorAll('*')];
       const copies = [copy, ...copy.querySelectorAll('*')];
+      if (element.hasAttribute('data-chat-rich-svg')) {
+        // RichAnswer's neutral paint roles belong to the chat theme, unlike
+        // Mermaid's self-contained drawing CSS. Keep them as destination ink;
+        // only explicitly chosen semantic drawing colors are materialized.
+        const chart = element.getAttribute('data-chat-rich-svg') === 'chart';
+        originals.forEach((original, index) => {
+          const target = copies[index] as SVGElement;
+          for (const attribute of ['style', 'class', 'color', 'bgcolor']) target.removeAttribute(attribute);
+          const authored = (original as SVGElement).style;
+          for (const property of ['fill', 'stroke']) {
+            const paint = authored.getPropertyValue(property);
+            if (!paint) continue;
+            const neutral = /^(?:currentcolor|var\(--(?:text-(?:primary|secondary|tertiary)|border-default)\))$/i.test(paint);
+            target.style.setProperty(property, neutral ? 'currentColor'
+              : paint.startsWith('var(') ? styleOf(original).getPropertyValue(property) : paint);
+          }
+          // The chart's class-based grid and labels have no authored paint.
+          if (chart && original.localName === 'line') target.style.stroke = 'currentColor';
+          if (chart && original.localName === 'text') target.style.fontSize = styleOf(original).fontSize;
+          for (const property of ['width', 'height', 'max-width', 'max-height']) {
+            const value = authored.getPropertyValue(property);
+            if (value) target.style.setProperty(property, value);
+          }
+        });
+        copy.style.fill ||= 'currentColor';
+        return copy;
+      }
       // Clipboard consumers may discard SVG <style> elements. Materialize the
       // drawing's presentation so its geometry remains legible without them.
       const presentation = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width',

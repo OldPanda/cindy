@@ -501,7 +501,7 @@ function AnswerLineChart({
   return (
     <div ref={ref}>
       <svg
-        data-chat-rich-svg
+        data-chat-rich-svg="chart"
         role="img"
         aria-label={`${label}. ${data.map((item) => `${item.label}: ${item.value}`).join(', ')}`}
         viewBox={`0 0 ${plot.width} ${plot.height}`}

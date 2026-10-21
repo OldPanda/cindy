@@ -90,12 +90,43 @@ describe('chat selection clipboard', () => {
     pasted.innerHTML = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')![1];
     pasted.querySelectorAll('style').forEach(style => style.remove());
     expect((pasted.querySelector('rect') as SVGElement).style.fill).toBe((originalRect as SVGElement).style.fill);
-    expect((pasted.querySelector('rect') as SVGElement).style.stroke).toBe((originalRect as SVGElement).style.stroke);
-    expect((pasted.querySelector('polyline') as SVGElement).style.fill).toBe(getComputedStyle(originalLine).fill);
-    expect((pasted.querySelector('polyline') as SVGElement).style.stroke).toBe(getComputedStyle(originalLine).stroke);
-    expect((pasted.querySelector('line') as SVGElement).style.stroke).toBe('rgb(120, 120, 120)');
+    expect((pasted.querySelector('rect') as SVGElement).style.stroke).toBe('currentcolor');
+    expect((pasted.querySelector('polyline') as SVGElement).style.fill).toBe('none');
+    expect((pasted.querySelector('polyline') as SVGElement).style.stroke).toBe('currentcolor');
+    expect((pasted.querySelector('line') as SVGElement).style.stroke).toBe('currentcolor');
     expect(pasted.textContent).toContain('before drawing');
     expect(pasted.textContent).toContain('after drawing');
+  });
+
+  // Review #4334592398: RichAnswer role colors come from the host theme,
+  // unlike Mermaid's drawing stylesheet. A dark-source/light-target paste
+  // must inherit target ink while explicit semantic drawing colors survive.
+  it('keeps RichAnswer theme ink adaptable without losing explicit drawing paints', () => {
+    const source = [
+      { id: 'vector', kind: 'svg', props: { viewBox: [0, 0, 20, 20], shapes: [
+        { type: 'rect', width: 10, height: 10, fill: 'primary', stroke: 'secondary' },
+        { type: 'circle', cx: 15, cy: 15, r: 2, fill: 'success', stroke: 'none' },
+      ] } },
+      { id: 'chart', kind: 'chart', props: { label: 'Trend', variant: 'line', color: 'primary', data: [
+        { label: 'A', value: 1 }, { label: 'B', value: 3 },
+      ] } },
+    ].map((node, index) => JSON.stringify({ version: 1, seq: index + 1, op: 'create', ...node })).join('\n');
+    const { root, select, copy } = setup(<div style={{ color: 'white', fontFamily: 'SourceTheme' }}>
+      <p>before</p>
+      <RichAnswer stateKey="portable-ink" source={source} complete renderMarkdown={text => <span>{text}</span>} />
+      <p>after</p>
+    </div>);
+    select();
+    const pasted = document.createElement('div');
+    pasted.innerHTML = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')![1];
+    expect((pasted.querySelector('rect') as SVGElement).style.fill).toBe('currentcolor');
+    expect((pasted.querySelector('rect') as SVGElement).style.stroke).toBe('currentcolor');
+    expect((pasted.querySelector('circle') as SVGElement).style.fill).toBe(getComputedStyle(root.querySelector('circle')!).fill);
+    expect((pasted.querySelector('circle') as SVGElement).style.stroke).toBe('none');
+    expect((pasted.querySelector('polyline') as SVGElement).style.fill).toBe('none');
+    expect((pasted.querySelector('polyline') as SVGElement).style.stroke).toBe('currentcolor');
+    expect((pasted.querySelector('line') as SVGElement).style.stroke).toBe('currentcolor');
+    expect(pasted.innerHTML).not.toMatch(/SourceTheme|color:\s*(?:white|rgb)|var\(--(?:text|border)-/);
   });
 
   // Review #4334258590: hand-built marker fixtures cannot catch production
