@@ -18,7 +18,7 @@ vi.mock('@/hooks/useRemoteMediaUrl', () => ({ useRemoteMediaUrl: (url: string) =
 // Isolate the external drawing engine, not the production diagram wrapper.
 vi.mock('mermaid', () => ({ default: {
   initialize: vi.fn(), parse: vi.fn().mockResolvedValue(true),
-  render: vi.fn().mockResolvedValue({ svg: '<svg viewBox="0 0 20 20"><path d="M0 0L20 20" style="fill:none;stroke:purple"/><text>diagram label</text></svg>' }),
+  render: vi.fn().mockResolvedValue({ svg: '<svg width="3000" height="2000" viewBox="0 0 3000 2000"><path d="M0 0L20 20" style="fill:none;stroke:purple"/><text>diagram label</text></svg>' }),
 } }));
 vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
 
@@ -135,12 +135,12 @@ describe('chat selection clipboard', () => {
   // not marker spellings or JSX/source text (unit/jsdom tier).
   it('copies real media components without preview controls or lost drawing/image presentation', async () => {
     const { root, select, copy } = setup(<>
-      <style>{'.object-cover { object-fit: cover; } .hidden { display: none; }'}</style>
+      <style>{'.object-cover { object-fit: cover; } .hidden { display: none; } .mermaid-sizing svg { max-width:100%; max-height:60vh; width:auto; height:auto; }'}</style>
       <p>before media</p>
       <ChatVideoView src="https://example.com/clip.mp4" filename="clip.mp4" variant="tool-output" />
       <ChatAudioCard track={{ kind: 'music', audioUrl: 'https://example.com/song.mp3', coverUrl: 'https://example.com/cover.png', title: 'Song title', tags: 'Ambient', lyrics: '', durationSeconds: 30 }} />
       <MarkdownRenderer workingDir="" content="![Photo](https://example.com/photo.png)" />
-      <MarkdownMermaidBlock raw="graph TD; A-->B" />
+      <div className="mermaid-sizing"><MarkdownMermaidBlock raw="graph TD; A-->B" /></div>
       <p>after media</p>
     </>);
     fireEvent.load(root.querySelector('img[alt="Photo"]')!);
@@ -159,6 +159,10 @@ describe('chat selection clipboard', () => {
     expect(cover.style.height).toBe('96px');
     expect(cover.style.objectFit).toBe('cover');
     const drawing = pasted.querySelector('path[d="M0 0L20 20"]') as SVGElement;
+    // Review #4334759240: production's parent CSS caps a large intrinsic SVG;
+    // those bounds must survive wrapper removal and portable copy.
+    expect(drawing.ownerSVGElement!.style.maxWidth).toBe('100%');
+    expect(drawing.ownerSVGElement!.style.maxHeight).toBe('60vh');
     expect(drawing.style.fill).toBe(getComputedStyle(root.querySelector('path[d="M0 0L20 20"]')!).fill);
     expect(drawing.style.stroke).toBe(getComputedStyle(root.querySelector('path[d="M0 0L20 20"]')!).stroke);
     expect(pasted.textContent).toContain('Song title');

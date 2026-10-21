@@ -151,6 +151,16 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
         copy.style.fill ||= 'currentColor';
         return copy;
       }
+      // Mermaid's preview bounds live in parent-selector CSS. Transfer them
+      // before unwrapping that parent so intrinsic SVG sizes cannot expand paste.
+      for (const property of ['max-width', 'max-height']) {
+        const value = styleOf(element).getPropertyValue(property);
+        if (value && value !== 'none') {
+          copy.style.setProperty(property, value);
+          copy.style.width = 'auto';
+          copy.style.height = 'auto';
+        }
+      }
       // Clipboard consumers may discard SVG <style> elements. Materialize the
       // drawing's presentation so its geometry remains legible without them.
       const presentation = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width',
