@@ -163,6 +163,9 @@ describe('chat selection clipboard', () => {
     expect(pasted.textContent).toBe(boundary === 'end' ? 'before x' : 'y after');
     expect(clipboardData.setData).toHaveBeenCalledWith('text/plain', boundary === 'end' ? 'before x' : 'y after');
     expect(pasted.querySelector('math, annotation')).toBeNull();
+    // The visual slice is now the only representation, so it must be exposed
+    // to assistive technology rather than retaining KaTeX's duplicate-hiding.
+    expect(pasted.querySelector('[aria-hidden="true"]')).toBeNull();
   });
 
   it('preserves checked and unchecked GFM task markers in both clipboard formats', () => {
@@ -177,6 +180,20 @@ describe('chat selection clipboard', () => {
     expect(plain).toContain('☑ done');
     expect(plain).toContain('☐ todo');
     expect(pasted.querySelector('input')).toBeNull();
+  });
+
+  it('retains separators, empty list positions and labelled SVG geometry', () => {
+    const { select, copy } = setup('<p>before</p><hr><ol><li>one</li><li></li><li>three</li></ol><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><rect x="1" y="1" width="40" height="20"/><path d="M 1 30 L 80 30"/><line x1="1" y1="40" x2="80" y2="40"/><text x="2" y="15">diagram label</text></svg><p>after</p>');
+    select();
+    const html = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    expect(pasted.querySelector('hr')).not.toBeNull();
+    expect([...pasted.querySelectorAll('li')].map(item => item.textContent)).toEqual(['one', '', 'three']);
+    expect(pasted.querySelector('svg rect')?.getAttribute('width')).toBe('40');
+    expect(pasted.querySelector('svg path')?.getAttribute('d')).toBe('M 1 30 L 80 30');
+    expect(pasted.querySelector('svg line')?.getAttribute('y2')).toBe('40');
+    expect(pasted.querySelector('svg text')?.textContent).toBe('diagram label');
   });
 
   it.each(['textarea', 'input', 'div contenteditable="true"'])('leaves %s editing to native copy', (tag) => {

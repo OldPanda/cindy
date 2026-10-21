@@ -104,7 +104,11 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
       // visual slice; never substitute the unselected rest of the formula.
       if (math && visual) {
         needsRenderedPlainText = true;
-        return cloneSelected(visual);
+        const copy = cloneSelected(visual) as Element | null;
+        // With the duplicate MathML omitted, the visual slice is the sole
+        // representation and must no longer be hidden from screen readers.
+        copy?.removeAttribute('aria-hidden');
+        return copy;
       }
     }
     if (element.matches('input[type="checkbox"]')) {
@@ -120,8 +124,12 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
       const selected = cloneSelected(child);
       if (selected) copy.appendChild(selected);
     }
-    // Empty cells carry column coordinates even when they contain no text.
-    if (!copy.hasChildNodes() && !element.matches('br, img, th, td')) return null;
+    // Empty semantic nodes carry spacing/list positions; SVG leaf geometry
+    // carries drawing commands without text children. Do not prune either.
+    const preservesEmpty = element.matches('br, img, hr, th, td') ||
+      element.namespaceURI === 'http://www.w3.org/2000/svg' ||
+      (!element.hasChildNodes() && element.matches(SEMANTIC_CONTAINER_SELECTOR));
+    if (!copy.hasChildNodes() && !preservesEmpty) return null;
     if (!copy.hasChildNodes() && (['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) ||
         inheritedStyle(element, 'user-select') === 'none')) return null;
     return copy;
