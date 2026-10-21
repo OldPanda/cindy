@@ -1,17 +1,31 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import katex from 'katex';
 import { File } from 'lucide-react';
 import { InlineReferenceChip } from '../InlineReferenceChip';
 import { copyChatSelection } from '../chatSelectionClipboard';
 import { CopyAsImageBlock } from '../CopyAsImageBlock';
+import { RichAnswer } from '../RichAnswer';
+import { ChatVideoView } from '../ChatVideoView';
+import { ChatAudioCard } from '../ChatAudioCard';
+import { MarkdownRenderer } from '../MarkdownRenderer';
+import { MarkdownMermaidBlock } from '../MarkdownMermaidBlock';
+
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'clipboard-owner' } }) }));
+vi.mock('@/hooks/useRemoteMediaUrl', () => ({ useRemoteMediaUrl: (url: string) => url }));
+// Isolate the external drawing engine, not the production diagram wrapper.
+vi.mock('mermaid', () => ({ default: {
+  initialize: vi.fn(), parse: vi.fn().mockResolvedValue(true),
+  render: vi.fn().mockResolvedValue({ svg: '<svg viewBox="0 0 20 20"><path d="M0 0L20 20" style="fill:none;stroke:purple"/><text>diagram label</text></svg>' }),
+} }));
+vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
 
 vi.mock('../useCopyAsImage', () => ({
   useCopyAsImage: () => ({ copiedImage: false, copyAsImage: vi.fn(), canAnnotate: true, openAnnotate: vi.fn(), annotateNode: null }),
 }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock('react-i18next', async (importOriginal) => ({ ...(await importOriginal<typeof import('react-i18next')>()), useTranslation: () => ({ t: (key: string) => key }) }));
 
 // Regression: selecting chat text and copying to a rich-text editor carries
 // Cindy's background/theme. Existing copy-button tests do not exercise native
@@ -22,8 +36,10 @@ afterEach(() => {
   cleanup();
 });
 
-function setup(html: string) {
-  const view = render(<div onCopy={copyChatSelection} dangerouslySetInnerHTML={{ __html: html }} />);
+function setup(content: string | React.ReactNode) {
+  const view = render(typeof content === 'string'
+    ? <div onCopy={copyChatSelection} dangerouslySetInnerHTML={{ __html: content }} />
+    : <div onCopy={copyChatSelection}>{content}</div>);
   const root = view.container.firstElementChild!;
   const select = (start: Node = root, end?: Node) => {
     const range = document.createRange();
@@ -47,6 +63,81 @@ function setup(html: string) {
 }
 
 describe('chat selection clipboard', () => {
+  // Review #4334258580: real RichAnswer shapes/chart store presentation in
+  // inline styles and CSS. Unit/jsdom copy-entry regression, alongside the
+  // existing real reference-chip test that protects decorative SVG filtering.
+  it('exports portable presentation from production RichAnswer vectors and line charts', () => {
+    const source = [
+      { id: 'vector', kind: 'svg', props: { label: 'Drawing', viewBox: [0, 0, 20, 20], shapes: [
+        { type: 'rect', x: 0, y: 0, width: 10, height: 10, fill: 'success', stroke: 'primary' },
+      ] } },
+      { id: 'chart', kind: 'chart', props: { label: 'Trend', variant: 'line', data: [
+        { label: 'A', value: 1 }, { label: 'B', value: 3 },
+      ] } },
+    ].map((node, index) => JSON.stringify({ version: 1, seq: index + 1, op: 'create', ...node })).join('\n');
+    const { root, select, copy } = setup(<>
+      <style>{'.rich-answer-chart-guide {stroke: rgb(120, 120, 120)}'}</style>
+      <p>before drawing</p>
+      <RichAnswer stateKey="clipboard-drawings" source={source} complete renderMarkdown={text => <span>{text}</span>} />
+      <p>after drawing</p>
+    </>);
+    const originalRect = root.querySelector('rect')!;
+    const originalLine = root.querySelector('polyline')!;
+    expect(originalRect).toBeTruthy();
+    expect(originalLine).toBeTruthy();
+    select();
+    const pasted = document.createElement('div');
+    pasted.innerHTML = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')![1];
+    pasted.querySelectorAll('style').forEach(style => style.remove());
+    expect((pasted.querySelector('rect') as SVGElement).style.fill).toBe((originalRect as SVGElement).style.fill);
+    expect((pasted.querySelector('rect') as SVGElement).style.stroke).toBe((originalRect as SVGElement).style.stroke);
+    expect((pasted.querySelector('polyline') as SVGElement).style.fill).toBe(getComputedStyle(originalLine).fill);
+    expect((pasted.querySelector('polyline') as SVGElement).style.stroke).toBe(getComputedStyle(originalLine).stroke);
+    expect((pasted.querySelector('line') as SVGElement).style.stroke).toBe('rgb(120, 120, 120)');
+    expect(pasted.textContent).toContain('before drawing');
+    expect(pasted.textContent).toContain('after drawing');
+  });
+
+  // Review #4334258590: hand-built marker fixtures cannot catch production
+  // integration drift. Render the actual four media components; mock only
+  // remote URL resolution/drawing and export effects. Assert copied behavior,
+  // not marker spellings or JSX/source text (unit/jsdom tier).
+  it('copies real media components without preview controls or lost drawing/image presentation', async () => {
+    const { root, select, copy } = setup(<>
+      <style>{'.object-cover { object-fit: cover; } .hidden { display: none; }'}</style>
+      <p>before media</p>
+      <ChatVideoView src="https://example.com/clip.mp4" filename="clip.mp4" variant="tool-output" />
+      <ChatAudioCard track={{ kind: 'music', audioUrl: 'https://example.com/song.mp3', coverUrl: 'https://example.com/cover.png', title: 'Song title', tags: 'Ambient', lyrics: '', durationSeconds: 30 }} />
+      <MarkdownRenderer workingDir="" content="![Photo](https://example.com/photo.png)" />
+      <MarkdownMermaidBlock raw="graph TD; A-->B" />
+      <p>after media</p>
+    </>);
+    fireEvent.load(root.querySelector('img[alt="Photo"]')!);
+    await waitFor(() => expect(root.querySelector('path[d="M0 0L20 20"]')).toBeTruthy());
+    select();
+    const { clipboardData } = copy();
+    const pasted = document.createElement('div');
+    pasted.innerHTML = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')![1];
+    expect(pasted.querySelector('video, [role="button"], button')).toBeNull();
+    const photo = pasted.querySelector('img[alt="Photo"]') as HTMLImageElement;
+    expect(photo).toBeTruthy();
+    expect(photo.style.maxWidth).toBe('min(100%, 50vw, 480px)');
+    const cover = pasted.querySelector('img[src="https://example.com/cover.png"]') as HTMLImageElement;
+    expect(cover).toBeTruthy();
+    expect(cover.style.width).toBe('96px');
+    expect(cover.style.height).toBe('96px');
+    expect(cover.style.objectFit).toBe('cover');
+    const drawing = pasted.querySelector('path[d="M0 0L20 20"]') as SVGElement;
+    expect(drawing.style.fill).toBe(getComputedStyle(root.querySelector('path[d="M0 0L20 20"]')!).fill);
+    expect(drawing.style.stroke).toBe(getComputedStyle(root.querySelector('path[d="M0 0L20 20"]')!).stroke);
+    expect(pasted.textContent).toContain('Song title');
+    expect(pasted.textContent).toContain('diagram label');
+    expect(pasted.textContent).toContain('before media');
+    expect(pasted.textContent).toContain('after media');
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')![1];
+    expect(plain).not.toMatch(/chat\.media|chat\.mermaid/);
+  });
+
   it.each(['#fffdf5', '#171717'])('exports semantic HTML without the %s theme', (background) => {
     const { root, select, copy } = setup(`<p class="theme" style="background:${background};color:red">Hello <strong>world</strong></p><p><a href="https://example.com" style="background-color:${background}">guide</a> <code class="token" style="color:blue">x &lt; y</code></p>`);
     select();

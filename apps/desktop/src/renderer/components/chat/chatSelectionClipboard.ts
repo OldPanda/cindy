@@ -115,7 +115,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     }
     // Reference-chip icons are decoration, not selected message content.
     if (element.matches('svg') && element.closest('[data-inline-reference-chip] [aria-hidden="true"]')) return null;
-    if (element.matches('[data-chat-mermaid] > svg') && range.comparePoint(element, 0) === 0 &&
+    if (element.matches('[data-chat-mermaid] > svg, svg[data-chat-rich-svg]') && range.comparePoint(element, 0) === 0 &&
         range.comparePoint(element, element.childNodes.length) === 0 &&
         !['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) &&
         inheritedStyle(element, 'user-select') !== 'none') {
@@ -195,7 +195,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
       needsRenderedPlainText = true;
       return null;
     }
-    if (element.matches('button[data-chat-image-preview]')) {
+    if (element.matches('button[data-chat-image-preview], [data-chat-mermaid]')) {
       const children = doc.createDocumentFragment();
       for (const child of element.childNodes) {
         const selected = cloneSelected(child);

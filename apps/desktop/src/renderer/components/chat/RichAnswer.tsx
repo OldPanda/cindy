@@ -214,6 +214,7 @@ function RichAnswerDocument({
         const vector = richVector(node, palette);
         return (
           <svg
+            data-chat-rich-svg
             role="img"
             aria-label={label || richString(node, 'alt')}
             viewBox={vector.viewBox}
@@ -500,6 +501,7 @@ function AnswerLineChart({
   return (
     <div ref={ref}>
       <svg
+        data-chat-rich-svg
         role="img"
         aria-label={`${label}. ${data.map((item) => `${item.label}: ${item.value}`).join(', ')}`}
         viewBox={`0 0 ${plot.width} ${plot.height}`}
