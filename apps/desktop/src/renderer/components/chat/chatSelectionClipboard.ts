@@ -110,7 +110,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
         const target = copies[index] as SVGElement | HTMLElement;
         for (const property of presentation) {
           const value = styleOf(original).getPropertyValue(property);
-          if (value) target.style.setProperty(property, value.replaceAll(`${doc.URL}#`, '#'));
+          if (value) target.style.setProperty(property, value.replaceAll(`${doc.URL.split('#')[0]}#`, '#'));
         }
       });
       return copy;
@@ -118,10 +118,20 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     if (element.matches('.katex')) {
       const math = element.querySelector('.katex-mathml > math');
       const visual = element.querySelector('.katex-html');
-      if (math && visual && range.comparePoint(math, 0) === 0 &&
-          range.comparePoint(math, math.childNodes.length) === 0 &&
-          range.comparePoint(visual, 0) === 0 &&
-          range.comparePoint(visual, visual.childNodes.length) === 0) {
+      let fullVisual = Boolean(visual && range.comparePoint(visual, 0) === 0 &&
+        range.comparePoint(visual, visual.childNodes.length) === 0);
+      if (visual && !fullVisual) {
+        // A drag starts/ends in text leaves, excluding the visual wrapper's
+        // empty layout spans and the preceding clipped MathML sibling.
+        const walker = doc.createTreeWalker(visual, NodeFilter.SHOW_TEXT);
+        const leaves: Node[] = [];
+        while (walker.nextNode()) {
+          if (walker.currentNode.textContent?.replace(/[\s\u200b]/g, '')) leaves.push(walker.currentNode);
+        }
+        fullVisual = leaves.length > 0 && leaves.every(leaf =>
+          range.comparePoint(leaf, 0) === 0 && range.comparePoint(leaf, leaf.textContent!.length) === 0);
+      }
+      if (math && fullVisual) {
         // KaTeX's clipped accessibility MathML and its visual layout describe
         // the same equation. Export just the semantic tree, without unwrapping
         // the visual spans into a second, unstyled equation. Visual-only partial
@@ -171,7 +181,13 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
 
   const content = doc.createElement('div');
   let fragment: Node = doc.createDocumentFragment();
-  const common = range.commonAncestorContainer;
+  const originalCommon = range.commonAncestorContainer;
+  const commonElement = originalCommon.nodeType === Node.ELEMENT_NODE
+    ? originalCommon as Element : originalCommon.parentElement;
+  const equation = commonElement?.closest('.katex');
+  // Visit the equation handler even when both endpoints are inside its visual
+  // subtree. The range itself remains unchanged for partial-copy boundaries.
+  const common = equation && container.contains(equation) ? equation : originalCommon;
   const commonIsAtomic = common.nodeType === Node.ELEMENT_NODE && (common as Element).matches('.katex, svg');
   // Walk the original selected DOM before stripping styles. cloneContents would
   // resurrect hidden measurement mirrors and non-selectable quote summaries.

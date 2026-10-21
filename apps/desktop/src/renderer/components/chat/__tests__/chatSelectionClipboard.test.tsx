@@ -170,6 +170,40 @@ describe('chat selection clipboard', () => {
     expect(pasted.querySelector('[aria-hidden="true"]')).toBeNull();
   });
 
+  it.each(['\\frac{a}{b}', '\\sqrt{x^2}'])('exports MathML when dragging only the visible formula %s', (source) => {
+    const { root, copy } = setup(`<p>before ${katex.renderToString(source)} after</p>`);
+    const visual = root.querySelector('.katex-html')!;
+    const walker = document.createTreeWalker(visual, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    while (walker.nextNode()) {
+      if (walker.currentNode.textContent?.replace(/[\s\u200b]/g, '')) nodes.push(walker.currentNode as Text);
+    }
+    const range = document.createRange();
+    range.setStart(nodes[0], 0);
+    range.setEnd(nodes.at(-1)!, nodes.at(-1)!.length);
+    window.getSelection()!.addRange(range);
+    const html = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    expect(pasted.querySelectorAll('math')).toHaveLength(1);
+    expect(pasted.querySelector('annotation')?.textContent).toBe(source);
+    expect(pasted.querySelector('math mfrac, math msqrt')).not.toBeNull();
+    expect(html).not.toMatch(/before|after|aria-hidden|class=/);
+  });
+
+  it('does not expand an internal partial formula selection', () => {
+    const { root, copy } = setup(katex.renderToString('x + y'));
+    const letter = root.querySelector('.katex-html .mord.mathnormal')!.firstChild!;
+    const range = document.createRange();range.selectNodeContents(letter);
+    window.getSelection()!.addRange(range);
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div');pasted.innerHTML = html;
+    expect(pasted.textContent).toBe('x');
+    expect(pasted.querySelector('math, [aria-hidden="true"]')).toBeNull();
+    expect(clipboardData.setData).toHaveBeenCalledWith('text/plain', 'x');
+  });
+
   it('preserves checked and unchecked GFM task markers in both clipboard formats', () => {
     const { select, copy } = setup('<ul class="contains-task-list"><li class="task-list-item"><input type="checkbox" checked disabled> done</li><li class="task-list-item"><input type="checkbox" disabled> todo</li></ul>');
     select();
@@ -230,6 +264,24 @@ describe('chat selection clipboard', () => {
     expect(rect.getAttribute('width')).toBe('90');
     pasted.querySelector('svg')?.remove();
     expect(pasted.innerHTML).not.toMatch(/chat-theme|background|color:/);
+  });
+
+  it('localizes SVG fragment references on a hash-router page without changing external references', () => {
+    const previous = window.location.href;
+    window.history.replaceState(null, '', '#/cc-agent/clipboard');
+    try {
+      const base = document.URL.split('#')[0];
+      const { select, copy } = setup(`<div data-chat-mermaid><svg xmlns="http://www.w3.org/2000/svg"><defs><marker id="arrow"/><linearGradient id="gradient"/></defs><path style='marker-end:url("${base}#arrow");fill:url("${base}#gradient");stroke:url("https://example.com/external.svg#paint")' d="M0 0L10 10"/><text>diagram</text></svg></div>`);
+      select();
+      const html = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+      const pasted = document.createElement('div');pasted.innerHTML = html;
+      const style = pasted.querySelector('path')!.style;
+      expect(style.markerEnd.replaceAll('"', '')).toBe('url(#arrow)');
+      expect(style.fill.replaceAll('"', '')).toBe('url(#gradient)');
+      expect(style.stroke).toContain('https://example.com/external.svg#paint');
+    } finally {
+      window.history.replaceState(null, '', previous);
+    }
   });
 
   it('keeps sent reference labels without exporting decorative icons or their theme', () => {
