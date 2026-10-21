@@ -170,7 +170,12 @@ describe('chat selection clipboard', () => {
     expect(pasted.textContent).toContain('before media');
     expect(pasted.textContent).toContain('after media');
     const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')![1];
-    expect(plain).not.toMatch(/chat\.media|chat\.mermaid/);
+    // Self-review: omit the complete player transport, not only its button.
+    // Progress/time labels are UI state; preserve the adjacent track content.
+    expect(plain).not.toMatch(/chat\.media|chat\.mermaid|0:00|0:30/);
+    expect(pasted.querySelector('[role="slider"]')).toBeNull();
+    expect(pasted.textContent).not.toMatch(/0:00|0:30/);
+    expect(pasted.textContent).toContain('Ambient');
   });
 
   it.each(['#fffdf5', '#171717'])('exports semantic HTML without the %s theme', (background) => {

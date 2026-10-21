@@ -273,10 +273,9 @@ export function ChatAudioCard({ track, sessionId }: ChatAudioCardProps) {
         ) : null}
 
         {/* Player row: play btn + currentTime + progress + duration */}
-        <div className="flex items-center gap-3">
+        <div data-chat-copy-exclude className="flex items-center gap-3">
           <Tip text={playing ? t('chat.media.audioPause') : t('chat.media.audioPlay')}>
             <button
-              data-chat-copy-exclude
               type="button"
               onClick={handleTogglePlay}
               aria-label={playing ? t('chat.media.audioPause') : t('chat.media.audioPlay')}
