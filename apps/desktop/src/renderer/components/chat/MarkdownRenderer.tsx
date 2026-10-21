@@ -540,6 +540,7 @@ function CodeBlockPre({ children, ...props }: HTMLAttributes<HTMLPreElement>) {
         <button
           type="button"
           onClick={handleCopy}
+          data-chat-copy-exclude
           aria-label={copied ? t('chat.markdownRenderer.codeCopied') : t('chat.markdownRenderer.copyCode')}
           className={cn(
             CHAT_ICON_BUTTON_CLASS,

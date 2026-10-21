@@ -301,6 +301,36 @@ describe('chat selection clipboard', () => {
     expect(html).not.toMatch(/class=|color:|font-family:|stroke:/);
   });
 
+  // Review 4333633275: opacity-only coverage missed hover/focus/fade states.
+  // Unit: production copy must omit marked application controls at any opacity.
+  it.each(['1', '0.5'])('omits visible or transitioning toolbars at opacity %s', (opacity) => {
+    const { select, copy } = setup(`<p>before</p><pre><code>visible code</code></pre><button data-chat-copy-exclude style="opacity:${opacity}"><svg><path d="M0 0L2 2"/></svg>copy code</button><div data-chat-copy-exclude style="opacity:${opacity}"><button>view source</button></div><p>after</p>`);
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')?.[1];
+    expect(html).not.toMatch(/button|svg|copy code|view source/);
+    const pasted = document.createElement('div'); pasted.innerHTML = html;
+    expect(pasted.querySelector('code')?.textContent).toBe('visible code');
+    expect(plain).not.toMatch(/copy code|view source/);
+  });
+
+  // Review 4333633280: the prior sizing case only covered LightboxImage.
+  // Unit: a high-resolution audio cover must retain its production 96px box.
+  it('retains audio cover dimensions without carrying the card theme', () => {
+    const { select, copy } = setup('<p>before</p><div style="width:96px;height:96px;background:red"><img data-chat-audio-cover src="https://example.com/cover.png" alt="track" style="width:100%;height:100%;object-fit:cover;color:purple"/></div><p>after</p>');
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div'); pasted.innerHTML = html;
+    const image = pasted.querySelector('img')!;
+    expect(image.style.width).toBe('96px');
+    expect(image.style.height).toBe('96px');
+    expect(image.style.objectFit).toBe('cover');
+    expect(image.alt).toBe('track');
+    expect(html).not.toMatch(/background|purple/);
+  });
+
   it('omits a video preview together with its play overlay from a mixed text selection', () => {
     const { select, copy } = setup('<p>before</p><div data-chat-video-preview role="button" aria-label="clip.mp4"><video src="https://example.com/clip.mp4"></video><div aria-hidden="true"><svg class="lucide lucide-play"><path d="M0 0L10 5L0 10Z"/></svg></div></div><p>after</p>');
     select();

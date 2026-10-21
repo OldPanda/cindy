@@ -204,6 +204,7 @@ export function ChatAudioCard({ track, sessionId }: ChatAudioCardProps) {
       >
         {track.coverUrl && !coverFailed ? (
           <img
+            data-chat-audio-cover
             src={displayCoverUrl}
             alt={title}
             className="h-full w-full object-cover"

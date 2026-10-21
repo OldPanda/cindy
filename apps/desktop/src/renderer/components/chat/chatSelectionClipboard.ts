@@ -66,6 +66,17 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
         if (value) (copy as HTMLImageElement).style.setProperty(property, value);
       }
     }
+    if (element.matches('img[data-chat-audio-cover]')) {
+      // Audio artwork is content, but its display box lives on the parent.
+      // Carry that bounded size onto the image so detached HTML cannot expand
+      // to the source cover's intrinsic resolution.
+      for (const property of ['width', 'height']) {
+        const value = (element.parentElement as HTMLElement | null)?.style.getPropertyValue(property);
+        if (value) (copy as HTMLImageElement).style.setProperty(property, value);
+      }
+      const fit = styleOf(element).objectFit;
+      if (fit) (copy as HTMLImageElement).style.objectFit = fit;
+    }
     return copy;
   };
   const cloneSelected = (node: Node): Node | null => {
@@ -88,10 +99,10 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return null;
     const element = node as Element;
-    if (element.matches('[data-chat-video-preview]')) {
-      // A native video preview cannot be represented by a detached play icon.
-      // Omit the complete preview from mixed text copying; its own media copy
-      // action and image/media-only native-copy fallback remain separate.
+    if (element.matches('[data-chat-video-preview], [data-chat-copy-exclude]')) {
+      // Application controls are not message content, even while hovered,
+      // focused or fading. Omit video previews atomically as well, rather than
+      // leaving their detached play overlay in a mixed text selection.
       needsRenderedPlainText = true;
       return null;
     }
