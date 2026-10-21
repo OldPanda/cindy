@@ -30,7 +30,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   if (!text) return;
 
   const doc = container.ownerDocument;
-  let omittedDisclosureBody = false;
+  let needsRenderedPlainText = false;
   const styles = new Map<Element, CSSStyleDeclaration>();
   const styleOf = (element: Element): CSSStyleDeclaration => {
     let style = styles.get(element);
@@ -67,7 +67,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     const parent = node.parentElement;
     if (parent?.matches('details:not([open])') &&
         node !== [...parent.children].find(child => child.matches('summary'))) {
-      omittedDisclosureBody = true;
+      needsRenderedPlainText = true;
       return null;
     }
     if (node.nodeType === Node.TEXT_NODE) {
@@ -85,7 +85,9 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
       const math = element.querySelector('.katex-mathml > math');
       const visual = element.querySelector('.katex-html');
       if (math && visual && range.comparePoint(math, 0) === 0 &&
-          range.comparePoint(math, math.childNodes.length) === 0) {
+          range.comparePoint(math, math.childNodes.length) === 0 &&
+          range.comparePoint(visual, 0) === 0 &&
+          range.comparePoint(visual, visual.childNodes.length) === 0) {
         // KaTeX's clipped accessibility MathML and its visual layout describe
         // the same equation. Export just the semantic tree, without unwrapping
         // the visual spans into a second, unstyled equation. Visual-only partial
@@ -94,8 +96,24 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
         for (const part of [copy, ...copy.querySelectorAll('*')]) {
           for (const attribute of ['style', 'class', 'bgcolor', 'color']) part.removeAttribute(attribute);
         }
+        needsRenderedPlainText = true;
         return copy;
       }
+      // A prose-to-equation drag can fully intersect the preceding hidden
+      // MathML while selecting only a visual prefix. Keep only the selected
+      // visual slice; never substitute the unselected rest of the formula.
+      if (math && visual) {
+        needsRenderedPlainText = true;
+        return cloneSelected(visual);
+      }
+    }
+    if (element.matches('input[type="checkbox"]')) {
+      if (['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) ||
+          inheritedStyle(element, 'user-select') === 'none') return null;
+      // Disabled GFM task checkboxes are content, rather than editable fields.
+      // Unicode markers survive HTML consumers that discard form controls.
+      needsRenderedPlainText = true;
+      return doc.createTextNode((element as HTMLInputElement).checked ? '☑' : '☐');
     }
     const copy = shell(element);
     for (const child of element.childNodes) {
@@ -137,10 +155,11 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   // Supplying our own HTML prevents Chromium from inlining ancestor backgrounds.
 
   let plainText = text;
-  if (omittedDisclosureBody) {
+  if (needsRenderedPlainText) {
     // Chromium Selection.toString() can include a closed details body even
     // though native copy excludes it. Read the filtered fragment's rendered
-    // text so the plain flavor cannot disclose fields omitted from the HTML.
+    // text so the plain flavor cannot disclose fields omitted from the HTML,
+    // and so converted task markers and equations agree in both formats.
     // Layout is needed for paragraph/table separators; never change the source.
     const staging = doc.createElement('div');
     staging.setAttribute('aria-hidden', 'true');

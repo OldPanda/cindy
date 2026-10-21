@@ -141,6 +141,44 @@ describe('chat selection clipboard', () => {
     expect(html).not.toMatch(/class=|height:|vertical-align:/);
   });
 
+  // New review boundaries: a prose-to-formula drag must not acquire an
+  // unselected suffix, and GFM task items must retain their distinct states.
+  it.each(['end', 'start'])('limits a partial equation at the selection %s', (boundary) => {
+    const { root, copy } = setup(`<p>before ${katex.renderToString('x + y')} after</p>`);
+    const range = document.createRange();
+    const letters = root.querySelectorAll('.katex-html .mord.mathnormal');
+    if (boundary === 'end') {
+      range.setStart(root.querySelector('p')!.firstChild!, 0);
+      range.setEnd(letters[0].firstChild!, 1);
+    } else {
+      range.setStart(letters[1].firstChild!, 0);
+      const last = root.querySelector('p')!.lastChild!;
+      range.setEnd(last, last.textContent!.length);
+    }
+    window.getSelection()!.addRange(range);
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    expect(pasted.textContent).toBe(boundary === 'end' ? 'before x' : 'y after');
+    expect(clipboardData.setData).toHaveBeenCalledWith('text/plain', boundary === 'end' ? 'before x' : 'y after');
+    expect(pasted.querySelector('math, annotation')).toBeNull();
+  });
+
+  it('preserves checked and unchecked GFM task markers in both clipboard formats', () => {
+    const { select, copy } = setup('<ul class="contains-task-list"><li class="task-list-item"><input type="checkbox" checked disabled> done</li><li class="task-list-item"><input type="checkbox" disabled> todo</li></ul>');
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')?.[1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    expect([...pasted.querySelectorAll('li')].map(item => item.textContent)).toEqual(['☑ done', '☐ todo']);
+    expect(plain).toContain('☑ done');
+    expect(plain).toContain('☐ todo');
+    expect(pasted.querySelector('input')).toBeNull();
+  });
+
   it.each(['textarea', 'input', 'div contenteditable="true"'])('leaves %s editing to native copy', (tag) => {
     const { root, select, copy } = setup(`<${tag}>draft</${tag.split(' ')[0]}>`);
     select(root.firstChild!);
