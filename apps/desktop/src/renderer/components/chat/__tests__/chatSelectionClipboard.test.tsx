@@ -71,6 +71,32 @@ describe('chat selection clipboard', () => {
     expect(copy().clipboardData.setData).toHaveBeenCalledWith('text/html', '<p><strong><a href="https://example.com">world</a></strong></p>');
   });
 
+  // PR #6609 review: user messages preserve literal newlines/indentation via
+  // CSS, while measurement mirrors and quote summaries must not enter HTML.
+  // These outputs were not covered by the original theme-only fixtures.
+  it('preserves multiline whitespace inherited by a partial inline selection', () => {
+    const { root, select, copy } = setup('<div style="white-space:pre-wrap;background:red"><span>first\n  second</span></div>');
+    select(root.querySelector('span')!.firstChild!);
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    expect(pasted.textContent).toBe('first\n  second');
+    expect(pasted.querySelector('[style]')?.getAttribute('style')).toMatch(/white-space:\s*pre-wrap/);
+    expect(html).not.toContain('background');
+  });
+
+  it('excludes hidden mirrors and non-selectable quote summaries across messages', () => {
+    const { select, copy } = setup('<p>start</p><div style="visibility:hidden"><span>hidden full message</span></div><span style="user-select:none"><span>quote summary</span></span><div style="display:none">hidden panel</div><p><code role="button">file.ts</code> end</p>');
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    expect(html).not.toMatch(/hidden full message|quote summary|hidden panel/);
+    expect(html).toContain('<code role="button">file.ts</code>');
+    expect(html).toContain('start');
+    expect(html).toContain('end');
+  });
+
   it.each(['textarea', 'input', 'div contenteditable="true"'])('leaves %s editing to native copy', (tag) => {
     const { root, select, copy } = setup(`<${tag}>draft</${tag.split(' ')[0]}>`);
     select(root.firstChild!);
