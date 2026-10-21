@@ -226,6 +226,7 @@ export const MarkdownMermaidBlock = memo(function MarkdownMermaidBlock({
         </pre>
       ) : svg != null ? (
         <div
+          data-chat-mermaid
           role="button"
           tabIndex={0}
           onClick={() => setLightboxOpen(true)}

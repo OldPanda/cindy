@@ -3,6 +3,8 @@
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import katex from 'katex';
+import { File } from 'lucide-react';
+import { InlineReferenceChip } from '../InlineReferenceChip';
 import { copyChatSelection } from '../chatSelectionClipboard';
 
 // Regression: selecting chat text and copying to a rich-text editor carries
@@ -210,7 +212,7 @@ describe('chat selection clipboard', () => {
 
   it.each([false, true])('keeps a fully selected SVG self-contained (diagram only=%s)', (diagramOnly) => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" id="diagram" viewBox="0 0 100 50"><style>#diagram .node{fill:aliceblue;stroke:navy}</style><rect class="node" width="90" height="40"/><foreignObject width="90" height="40"><div xmlns="http://www.w3.org/1999/xhtml" style="display:table-cell;white-space:nowrap">label</div></foreignObject></svg>';
-    const { root, select, copy } = setup(`<div class="chat-theme" style="background:red;color:purple"><p>before</p>${svg}<p>after</p></div>`);
+    const { root, select, copy } = setup(`<div class="chat-theme" style="background:red;color:purple"><p>before</p><div data-chat-mermaid>${svg}</div><p>after</p></div>`);
     const presentation = document.createElement('style');
     presentation.textContent = '#diagram .node { fill: aliceblue; stroke: navy; }';
     document.head.append(presentation);
@@ -228,6 +230,23 @@ describe('chat selection clipboard', () => {
     expect(rect.getAttribute('width')).toBe('90');
     pasted.querySelector('svg')?.remove();
     expect(pasted.innerHTML).not.toMatch(/chat-theme|background|color:/);
+  });
+
+  it('keeps sent reference labels without exporting decorative icons or their theme', () => {
+    const chip = render(<InlineReferenceChip label="project/file.ts" icon={<File />} textSelectable />);
+    const { select, copy } = setup(`<p>before</p><span style="color:purple;font-family:monospace">${chip.container.innerHTML}<svg class="other-icon" style="color:red" viewBox="0 0 10 10"><path class="stroke-theme" style="stroke:purple" d="M0 0L10 10"/><text>ordinary graphic</text></svg></span><p>after</p>`);
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')?.[1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    expect(pasted.textContent).toContain('project/file.ts');
+    expect(plain).toContain('project/file.ts');
+    expect(pasted.querySelector('[aria-hidden] svg')).toBeNull();
+    expect(pasted.querySelectorAll('svg')).toHaveLength(1);
+    expect(pasted.querySelector('svg path')?.getAttribute('d')).toBe('M0 0L10 10');
+    expect(html).not.toMatch(/class=|color:|font-family:|stroke:/);
   });
 
   it.each(['textarea', 'input', 'div contenteditable="true"'])('leaves %s editing to native copy', (tag) => {
