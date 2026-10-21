@@ -81,6 +81,38 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     if (node.nodeType !== Node.ELEMENT_NODE) return null;
     const element = node as Element;
     if (styleOf(element).display === 'none' || styleOf(element).contentVisibility === 'hidden') return null;
+    if (styleOf(element).opacity === '0') {
+      // Hover-only controls must not become visible after theme classes are
+      // removed. Descendants cannot override a composited zero opacity.
+      needsRenderedPlainText = true;
+      return null;
+    }
+    if (element.matches('svg') && range.comparePoint(element, 0) === 0 &&
+        range.comparePoint(element, element.childNodes.length) === 0 &&
+        !['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) &&
+        inheritedStyle(element, 'user-select') !== 'none') {
+      // A complete diagram is content like an image: its scoped stylesheet,
+      // classes and foreignObject layout belong to the drawing, not the chat
+      // host theme. Keep that self-contained presentation as one unit.
+      const copy = element.cloneNode(true) as SVGElement;
+      const originals = [element, ...element.querySelectorAll('*')];
+      const copies = [copy, ...copy.querySelectorAll('*')];
+      // Clipboard consumers may discard SVG <style> elements. Materialize the
+      // drawing's presentation so its geometry remains legible without them.
+      const presentation = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width',
+        'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap',
+        'stroke-linejoin', 'stroke-miterlimit', 'opacity', 'color', 'font-family',
+        'font-size', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline',
+        'marker-start', 'marker-mid', 'marker-end', 'visibility', 'white-space'];
+      originals.forEach((original, index) => {
+        const target = copies[index] as SVGElement | HTMLElement;
+        for (const property of presentation) {
+          const value = styleOf(original).getPropertyValue(property);
+          if (value) target.style.setProperty(property, value.replaceAll(`${doc.URL}#`, '#'));
+        }
+      });
+      return copy;
+    }
     if (element.matches('.katex')) {
       const math = element.querySelector('.katex-mathml > math');
       const visual = element.querySelector('.katex-html');
@@ -138,10 +170,10 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   const content = doc.createElement('div');
   let fragment: Node = doc.createDocumentFragment();
   const common = range.commonAncestorContainer;
-  const commonIsEquation = common.nodeType === Node.ELEMENT_NODE && (common as Element).matches('.katex');
+  const commonIsAtomic = common.nodeType === Node.ELEMENT_NODE && (common as Element).matches('.katex, svg');
   // Walk the original selected DOM before stripping styles. cloneContents would
   // resurrect hidden measurement mirrors and non-selectable quote summaries.
-  for (const node of common.nodeType === Node.TEXT_NODE || commonIsEquation ? [common] : common.childNodes) {
+  for (const node of common.nodeType === Node.TEXT_NODE || commonIsAtomic ? [common] : common.childNodes) {
     const selected = cloneSelected(node);
     if (selected) fragment.appendChild(selected);
   }
@@ -150,7 +182,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   let ancestor = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
     ? range.commonAncestorContainer as Element
     : range.commonAncestorContainer.parentElement;
-  if (commonIsEquation) ancestor = common.parentElement;
+  if (commonIsAtomic) ancestor = common.parentElement;
   while (ancestor && ancestor !== container) {
     if (ancestor.matches(SEMANTIC_CONTAINER_SELECTOR) || preservesWhitespace(whitespaceOf(ancestor))) {
       const wrapper = shell(ancestor);

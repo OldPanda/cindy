@@ -196,6 +196,40 @@ describe('chat selection clipboard', () => {
     expect(pasted.querySelector('svg text')?.textContent).toBe('diagram label');
   });
 
+  it('omits transparent hover toolbars without losing visible code or graphics', () => {
+    const { select, copy } = setup('<p>before</p><div style="opacity:0"><button><svg><path d="M0 0L2 2"/></svg>hidden toolbar</button></div><pre><code>visible code</code></pre><p>after</p>');
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')?.[1];
+    expect(html).not.toMatch(/hidden toolbar|button|<svg/);
+    expect(plain).not.toContain('hidden toolbar');
+    expect(html).toContain('<code');
+    expect(plain).toContain('visible code');
+  });
+
+  it.each([false, true])('keeps a fully selected SVG self-contained (diagram only=%s)', (diagramOnly) => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" id="diagram" viewBox="0 0 100 50"><style>#diagram .node{fill:aliceblue;stroke:navy}</style><rect class="node" width="90" height="40"/><foreignObject width="90" height="40"><div xmlns="http://www.w3.org/1999/xhtml" style="display:table-cell;white-space:nowrap">label</div></foreignObject></svg>';
+    const { root, select, copy } = setup(`<div class="chat-theme" style="background:red;color:purple"><p>before</p>${svg}<p>after</p></div>`);
+    const presentation = document.createElement('style');
+    presentation.textContent = '#diagram .node { fill: aliceblue; stroke: navy; }';
+    document.head.append(presentation);
+    select(diagramOnly ? root.querySelector('svg')! : root);
+    const html = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    presentation.remove();
+    expect(pasted.querySelector('svg style')?.textContent).toContain('#diagram .node');
+    expect(pasted.querySelector('foreignObject div')?.getAttribute('style')).toMatch(/display:\s*table-cell/);
+    pasted.querySelectorAll('style').forEach(node => node.remove());
+    const rect = pasted.querySelector('rect')!;
+    expect(rect.style.fill).toBe('rgb(240, 248, 255)');
+    expect(rect.style.stroke).toBe('rgb(0, 0, 128)');
+    expect(rect.getAttribute('width')).toBe('90');
+    pasted.querySelector('svg')?.remove();
+    expect(pasted.innerHTML).not.toMatch(/chat-theme|background|color:/);
+  });
+
   it.each(['textarea', 'input', 'div contenteditable="true"'])('leaves %s editing to native copy', (tag) => {
     const { root, select, copy } = setup(`<${tag}>draft</${tag.split(' ')[0]}>`);
     select(root.firstChild!);
