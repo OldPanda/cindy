@@ -416,6 +416,30 @@ describe('chat selection clipboard', () => {
     outside.remove();
   });
 
+  // Reviews 4334030899/4334030908: cross-control ranges bypass endpoint
+  // guards. Unit copy must omit dropdown alternatives and interactive state,
+  // while disabled GFM task markers remain message content.
+  it('omits form controls from mixed selections while retaining disabled task state', () => {
+    const { select, copy } = setup('<p>before</p><label>Choice<select><option selected>shown</option><option>unseen alternative</option></select></label><label><input type="checkbox" checked/>toggle label</label><input value="draft"/><textarea>draft body</textarea><input type="checkbox" checked disabled/><ul><li class="task-list-item"><input type="checkbox" checked disabled/>done</li></ul><p>after</p>');
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')?.[1];
+    expect(html).not.toMatch(/<select|<option|<input|<textarea|shown|unseen alternative|draft/);
+    expect(plain).not.toMatch(/shown|unseen alternative|draft/);
+    expect((html.match(/☑/g) || [])).toHaveLength(1);
+    expect((plain.match(/☑/g) || [])).toHaveLength(1);
+    expect(html).toContain('toggle label');
+  });
+
+  it('leaves direct select copying to the native control', () => {
+    const { root, select, copy } = setup('<select><option>selected option</option></select>');
+    select(root.querySelector('option')!.firstChild!);
+    const { event, clipboardData } = copy(root.querySelector('select')!);
+    expect(event.defaultPrevented).toBe(false);
+    expect(clipboardData.setData).not.toHaveBeenCalled();
+  });
+
   it('leaves image-only and collapsed selections to native copy', () => {
     const { root, select, copy } = setup('<img src="https://example.com/image.png" alt="image">');
     select();

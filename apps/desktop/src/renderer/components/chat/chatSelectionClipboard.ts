@@ -1,6 +1,6 @@
 import type { ClipboardEvent } from 'react';
 
-const EDITABLE_SELECTOR = 'input, textarea, [contenteditable]:not([contenteditable="false"])';
+const EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
 const SEMANTIC_CONTAINER_SELECTOR = 'a, strong, b, em, i, u, s, del, code, pre, p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol, li, table, thead, tbody, tfoot, tr, th, td';
 
 function isEditable(node: Node): boolean {
@@ -181,13 +181,19 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
         return copy;
       }
     }
-    if (element.matches('input[type="checkbox"]')) {
+    if (element.matches('li.task-list-item > input[type="checkbox"][disabled]')) {
       if (['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) ||
           inheritedStyle(element, 'user-select') === 'none') return null;
       // Disabled GFM task checkboxes are content, rather than editable fields.
       // Unicode markers survive HTML consumers that discard form controls.
       needsRenderedPlainText = true;
       return doc.createTextNode((element as HTMLInputElement).checked ? '☑' : '☐');
+    }
+    if (element.matches('input, textarea, select')) {
+      // Intermediate interactive fields are UI state, not selected message
+      // content. Never serialize their values, options or active checkbox state.
+      needsRenderedPlainText = true;
+      return null;
     }
     if (element.matches('button[data-chat-image-preview]')) {
       const children = doc.createDocumentFragment();
