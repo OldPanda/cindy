@@ -6,6 +6,12 @@ import katex from 'katex';
 import { File } from 'lucide-react';
 import { InlineReferenceChip } from '../InlineReferenceChip';
 import { copyChatSelection } from '../chatSelectionClipboard';
+import { CopyAsImageBlock } from '../CopyAsImageBlock';
+
+vi.mock('../useCopyAsImage', () => ({
+  useCopyAsImage: () => ({ copiedImage: false, copyAsImage: vi.fn(), canAnnotate: true, openAnnotate: vi.fn(), annotateNode: null }),
+}));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 // Regression: selecting chat text and copying to a rich-text editor carries
 // Cindy's background/theme. Existing copy-button tests do not exercise native
@@ -313,6 +319,37 @@ describe('chat selection clipboard', () => {
     const pasted = document.createElement('div'); pasted.innerHTML = html;
     expect(pasted.querySelector('code')?.textContent).toBe('visible code');
     expect(plain).not.toMatch(/copy code|view source/);
+  });
+
+  // Review 4333807318: generic marked fixtures cannot detect an unmarked
+  // production toolbar. Unit: render the real table/formula wrapper (only its
+  // image-export side effects are stubbed), then inspect actual copy output.
+  it.each(['1', '0.5'])('excludes CopyAsImageBlock controls at opacity %s', (opacity) => {
+    const equation = katex.renderToString('x^2', { displayMode: true });
+    const view = render(<div onCopy={copyChatSelection}>
+      <p>before</p>
+      <CopyAsImageBlock><table><tbody><tr><td /><td>value</td></tr></tbody></table></CopyAsImageBlock>
+      <CopyAsImageBlock><span dangerouslySetInnerHTML={{ __html: equation }} /></CopyAsImageBlock>
+      <p>after</p>
+    </div>);
+    const root = view.container.firstElementChild!;
+    // Simulate hover/focus or mid-transition; do not manually add export markers.
+    for (const button of root.querySelectorAll('button')) button.parentElement!.style.opacity = opacity;
+    const range = document.createRange(); range.selectNodeContents(root);
+    window.getSelection()!.addRange(range);
+    const clipboardData = { setData: vi.fn() };
+    const event = new Event('copy', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: clipboardData });
+    fireEvent(root, event);
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')?.[1];
+    const pasted = document.createElement('div'); pasted.innerHTML = html;
+    expect(pasted.querySelectorAll('button, svg')).toHaveLength(0);
+    expect([...pasted.querySelectorAll('td')].map(cell => cell.textContent)).toEqual(['', 'value']);
+    expect(pasted.querySelectorAll('math')).toHaveLength(1);
+    expect(plain).not.toMatch(/markdownRenderer|annotateImage/);
+    expect(pasted.textContent).toContain('before');
+    expect(pasted.textContent).toContain('after');
   });
 
   // Review 4333633280: the prior sizing case only covered LightboxImage.
