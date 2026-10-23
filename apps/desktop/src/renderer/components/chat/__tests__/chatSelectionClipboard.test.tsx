@@ -15,6 +15,7 @@ import { ChatImageView } from '../ChatImageView';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { MarkdownMermaidBlock } from '../MarkdownMermaidBlock';
 import { UserMessageImageLink } from '../UserMessageImageLink';
+import { GeneratedFilesCard, _clearLocalGeneratedFileStatCache } from '../GeneratedFilesCard';
 import { SystemCard } from '../SystemCard';
 import { VideoSitePreview } from '../VideoSitePreview';
 import { GhostSummonCard } from '../GhostSummonCard';
@@ -61,7 +62,7 @@ vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect()
 vi.mock('../useCopyAsImage', () => ({
   useCopyAsImage: () => ({ copiedImage: false, copyAsImage: vi.fn(), canAnnotate: true, openAnnotate: vi.fn(), annotateNode: null }),
 }));
-vi.mock('react-i18next', async (importOriginal) => ({ ...(await importOriginal<typeof import('react-i18next')>()), useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock('react-i18next', async (importOriginal) => ({ ...(await importOriginal<typeof import('react-i18next')>()), useTranslation: () => ({ t: (key: string, vars?: { count?: unknown }) => vars?.count === undefined ? key : `${key}:${vars.count}` }) }));
 
 // Regression: selecting chat text and copying to a rich-text editor carries
 // Cindy's background/theme. Existing copy-button tests do not exercise native
@@ -224,6 +225,39 @@ describe('chat selection clipboard', () => {
     expect(root.querySelectorAll('[role="button"][tabindex="0"]')).toHaveLength(2);
   });
 
+  // Review #4361701135: file delivery labels live in content buttons too.
+  it('copies actual generated document and image labels under global control CSS', async () => {
+    productionSelectionCss();
+    const previous = window.electronAPI;
+    Object.defineProperty(window, 'electronAPI', { configurable: true, value: {
+      ...previous, fsBrowse: { statPath: vi.fn(async () => ({ kind: 'file', birthtimeMs: 2000, mtimeMs: 2000 })) },
+    } });
+    _clearLocalGeneratedFileStatCache();
+    try {
+      const { root, select, copy } = setup(<><p>before generated</p>
+        <GeneratedFilesCard botArtifacts turnStartMs={1000} turnEndMs={5000} files={[
+          { path: '/workspace/report.pdf', name: 'report.pdf', source: 'tool', artifact: {
+            format: 'pdf', title: 'Quarterly report', summary: { kind: 'pages', value: 3 },
+          } },
+          { path: '/workspace/preview.png', name: 'preview.png', source: 'tool' },
+        ]} /><p>after generated</p></>);
+      await waitFor(() => expect(root.querySelector('button[title="/workspace/report.pdf"]:not(:disabled)')).toBeTruthy());
+      expect(root.querySelector('button[title="/workspace/preview.png"]')).toBeTruthy();
+      select();
+      const formats = copy().clipboardData.setData.mock.calls;
+      for (const [, value] of formats) {
+        for (const label of ['Quarterly report', 'report.pdf', 'preview.png', 'chat.generatedFiles.formats.pdf', 'chat.generatedFiles.summary.pages:3', 'after generated']) expect(value).toContain(label);
+      }
+      const pasted = document.createElement('div');
+      pasted.innerHTML = formats.find(([type]) => type === 'text/html')![1];
+      expect(pasted.querySelector('button, [role="button"], [tabindex]')).toBeNull();
+      expect(root.querySelector('button[title="/workspace/report.pdf"]')).toBeTruthy();
+    } finally {
+      Object.defineProperty(window, 'electronAPI', { configurable: true, value: previous });
+      _clearLocalGeneratedFileStatCache();
+    }
+  });
+
   // Review #4359931559: the real bar renderer uses empty div geometry rather
   // than SVG. Copy-entry unit regression protects signed/zero widths and paint;
   // existing vector/line coverage does not reach this production branch.
@@ -315,6 +349,9 @@ describe('chat selection clipboard', () => {
     expect((pasted.querySelector('polyline') as SVGElement).style.fill).toBe('none');
     expect((pasted.querySelector('polyline') as SVGElement).style.stroke).toBe('currentcolor');
     expect((pasted.querySelector('line') as SVGElement).style.stroke).toBe('currentcolor');
+    const chart = pasted.querySelector('svg[data-chat-rich-svg="chart"]') as SVGElement;
+    expect(chart.style.width).toBe('100%');
+    expect(chart.style.maxWidth).toBe('100%');
     expect(pasted.textContent).toContain('before drawing');
     expect(pasted.textContent).toContain('after drawing');
   });

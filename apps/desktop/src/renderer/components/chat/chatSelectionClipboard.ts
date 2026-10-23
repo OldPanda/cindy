@@ -215,6 +215,12 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
             if (value) target.style.setProperty(property, value);
           }
         });
+        if (chart) {
+          // The renderer's responsive root width lives in class-based CSS.
+          // Carry it across without freezing the source message column size.
+          copy.style.width ||= '100%';
+          copy.style.maxWidth ||= '100%';
+        }
         copy.style.fill ||= 'currentColor';
         return copy;
       }
