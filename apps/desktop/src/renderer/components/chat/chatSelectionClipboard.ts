@@ -231,7 +231,10 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
       needsRenderedPlainText = true;
       return null;
     }
-    if (element.matches('button[data-chat-image-preview], [data-chat-mermaid]')) {
+    if (element.matches('button, [data-chat-mermaid]')) {
+      // Selectable card headers and image triggers contribute content, not a
+      // portable button action. Keep only their selected children; marked
+      // controls were excluded above and selection/visibility filters still apply.
       const children = doc.createDocumentFragment();
       for (const child of element.childNodes) {
         const selected = cloneSelected(child);

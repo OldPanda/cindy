@@ -12,6 +12,14 @@ import { ChatVideoView } from '../ChatVideoView';
 import { ChatAudioCard } from '../ChatAudioCard';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { MarkdownMermaidBlock } from '../MarkdownMermaidBlock';
+import { SystemCard } from '../SystemCard';
+
+// Other SystemCard variants are unrelated to the context header under test.
+vi.mock('@/features/bots/useRemoteBots', () => ({ useRemoteBots: () => [] }));
+vi.mock('@/features/bots/BotCollaborationCard', () => ({
+  BotSessionTaskCard: () => null, BotSessionTaskMessageTrace: () => null,
+}));
+vi.mock('@/features/learn/LearnStatusCard', () => ({ LearnStatusCard: () => null }));
 
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'clipboard-owner' } }) }));
 vi.mock('@/hooks/useRemoteMediaUrl', () => ({ useRemoteMediaUrl: (url: string) => url }));
@@ -63,6 +71,38 @@ function setup(content: string | React.ReactNode) {
 }
 
 describe('chat selection clipboard', () => {
+  // Review #4359639062: media-only button unwrapping misses selectable card
+  // summaries. Render the actual context card and copy across its header;
+  // unit/jsdom verifies plain summary content without a dead pasted button.
+  it('copies a production context header as ordinary text while excluding marked controls', () => {
+    const { root, select, copy } = setup(<>
+      <p>before context</p>
+      <SystemCard cardType="context" data={{ usage: {
+        categories: [], totalTokens: 1000, maxTokens: 10000,
+        rawMaxTokens: 10000, percentage: 10, model: 'test-model',
+      } }} />
+      <button data-chat-copy-exclude>Control action</button>
+      <p>after context</p>
+    </>);
+    const header = root.querySelector('button[aria-expanded]')!;
+    const summary = header.textContent!;
+    select();
+    const { clipboardData } = copy();
+    const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')![1];
+    const plain = clipboardData.setData.mock.calls.find(([type]) => type === 'text/plain')![1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    expect(pasted.querySelector('button')).toBeNull();
+    expect(pasted.textContent).toContain(summary);
+    expect(plain).toContain(summary);
+    expect(pasted.textContent).not.toContain('Control action');
+    expect(plain).not.toContain('Control action');
+    expect(pasted.textContent).toContain('before context');
+    expect(pasted.textContent).toContain('after context');
+    expect(header.isConnected).toBe(true);
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+  });
+
   // Review #4334258580: real RichAnswer shapes/chart store presentation in
   // inline styles and CSS. Unit/jsdom copy-entry regression, alongside the
   // existing real reference-chip test that protects decorative SVG filtering.
