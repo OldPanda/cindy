@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import katex from 'katex';
 import { File } from 'lucide-react';
+import { installRendererSelectionStyles as productionSelectionCss } from '../../../../test/vitest/rendererSelectionStyles';
 import { InlineReferenceChip } from '../InlineReferenceChip';
 import { copyChatSelection } from '../chatSelectionClipboard';
 import { CopyAsImageBlock } from '../CopyAsImageBlock';
@@ -75,18 +76,6 @@ afterEach(() => {
   document.querySelectorAll('style[data-copy-test]').forEach(style => style.remove());
 });
 
-// Model globals.css control selection in jsdom; the browser fixture loads the
-// actual CSS rules as well, so this unit fixture cannot mask integration drift.
-function productionSelectionCss() {
-  const style = document.createElement('style');
-  style.dataset.copyTest = '';
-  style.textContent = `button, [role='button'], [role='menuitem'], [role='option'], .select-none, .select-none * {
-    -webkit-user-select: none;
-    user-select: none;
-  }`;
-  document.head.appendChild(style);
-}
-
 function setup(content: string | React.ReactNode) {
   const view = render(typeof content === 'string'
     ? <div onCopy={copyChatSelection} dangerouslySetInnerHTML={{ __html: content }} />
@@ -137,7 +126,7 @@ describe('chat selection clipboard', () => {
 
   // Review #4360830856: live/completed task actions are application controls,
   // while the title and expanded result remain selectable message content.
-  it.each(['running', 'waiting', 'completed'] as const)('omits production task action chips (%s)', async (state) => {
+  it.each(['running', 'waiting', 'completed'].flatMap(state => [false, true].map(selectText => ({ state, selectText }))))('omits production task action chips ($state, select-text=$selectText)', async ({ state, selectText }) => {
     productionSelectionCss();
     taskLink.mockReturnValue({
       resolved: true, targetId: 'child-task', open: vi.fn(), session: null, activity: null,
@@ -147,8 +136,11 @@ describe('chat selection clipboard', () => {
     const { root, select, copy } = setup(<><p>before task</p>
       <BotTaskCard sessionId="parent-task" card={{ role: 'delegation-request', objective: 'Task title' } as React.ComponentProps<typeof BotTaskCard>['card']} />
       <p>after task</p></>);
+    root.classList.toggle('select-text', selectText);
     const buttons = [...root.querySelectorAll('button')];
     expect(buttons.some(button => button.textContent?.includes(state === 'waiting' ? 'bots.collab.lookAt' : 'bots.collab.watchWork'))).toBe(true);
+    const action = buttons.find(button => button.textContent?.includes(state === 'waiting' ? 'bots.collab.lookAt' : 'bots.collab.watchWork'))!;
+    expect(getComputedStyle(action).userSelect).toBe(selectText ? 'text' : 'none');
     if (state === 'running') {
       expect(buttons.some(button => button.textContent?.includes('bots.collab.addNote'))).toBe(true);
       expect(buttons.some(button => button.textContent?.includes('bots.collab.stop'))).toBe(true);
