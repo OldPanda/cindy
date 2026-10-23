@@ -11,6 +11,7 @@ import { RichAnswer } from '../RichAnswer';
 import { ChatVideoView } from '../ChatVideoView';
 import { ChatAudioCard } from '../ChatAudioCard';
 import { ChatSoundEffectCard } from '../ChatSoundEffectCard';
+import { ChatImageView } from '../ChatImageView';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { MarkdownMermaidBlock } from '../MarkdownMermaidBlock';
 import { SystemCard } from '../SystemCard';
@@ -203,8 +204,10 @@ describe('chat selection clipboard', () => {
   // not marker spellings or JSX/source text (unit/jsdom tier).
   it('copies real media components without preview controls or lost drawing/image presentation', async () => {
     const { root, select, copy } = setup(<>
-      <style>{'.object-cover { object-fit: cover; } .hidden { display: none; } .mermaid-sizing svg { max-width:100%; max-height:60vh; width:auto; height:auto; }'}</style>
+      <style>{'.object-cover { object-fit: cover; } .object-contain { object-fit: contain; } .hidden { display: none; } .mermaid-sizing svg { max-width:100%; max-height:60vh; width:auto; height:auto; }'}</style>
       <p>before media</p>
+      <ChatImageView src="https://example.com/attachment.png" filename="Attachment" variant="user-attached" />
+      <ChatImageView src="https://example.com/tool.png" filename="Tool image" variant="tool-output" />
       <ChatVideoView src="https://example.com/clip.mp4" filename="clip.mp4" variant="tool-output" />
       <ChatAudioCard track={{ kind: 'music', audioUrl: 'https://example.com/song.mp3', coverUrl: 'https://example.com/cover.png', title: 'Song title', tags: 'Ambient', lyrics: '', durationSeconds: 30 }} />
       <ChatSoundEffectCard track={{ kind: 'sound_effect', audioUrl: 'https://example.com/effect.mp3', coverUrl: '', title: 'Rain sound', tags: '', lyrics: '', durationSeconds: 30 }} />
@@ -213,11 +216,23 @@ describe('chat selection clipboard', () => {
       <p>after media</p>
     </>);
     fireEvent.load(root.querySelector('img[alt="Photo"]')!);
+    fireEvent.load(root.querySelector('img[alt="Attachment"]')!);
+    fireEvent.load(root.querySelector('img[alt="Tool image"]')!);
     await waitFor(() => expect(root.querySelector('path[d="M0 0L20 20"]')).toBeTruthy());
     select();
     const { clipboardData } = copy();
     const pasted = document.createElement('div');
     pasted.innerHTML = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')![1];
+    // Review #4360233963: loaded ChatImageView images own their preview bounds.
+    const attachment = pasted.querySelector('img[alt="Attachment"]') as HTMLImageElement;
+    const toolImage = pasted.querySelector('img[alt="Tool image"]') as HTMLImageElement;
+    expect(attachment.style.maxWidth).toBe('280px');
+    expect(attachment.style.maxHeight).toBe('180px');
+    expect(attachment.style.objectFit).toBe('contain');
+    expect(toolImage.style.maxWidth).toBe('min(100%, 50vw, 480px)');
+    expect(toolImage.style.maxHeight).toBe('min(40vh, 420px)');
+    expect(toolImage.style.height).toBe('auto');
+    expect(toolImage.style.objectFit).toBe('contain');
     expect(pasted.querySelector('video, [role="button"], button')).toBeNull();
     const photo = pasted.querySelector('img[alt="Photo"]') as HTMLImageElement;
     expect(photo).toBeTruthy();

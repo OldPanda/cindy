@@ -58,13 +58,18 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     // allowlisted declaration so user-message newlines/indentation survive HTML paste.
     const whitespace = whitespaceOf(element);
     if (preservesWhitespace(whitespace)) copy.setAttribute('style', `white-space: ${whitespace};`);
-    if (element.matches('[data-chat-image-preview] img')) {
+    if (element.matches('[data-chat-image-preview] img, img[data-gallery-src]')) {
       // The image is content; the surrounding lightbox button is application
       // chrome. Keep only its inline sizing limits, never theme declarations.
       for (const property of ['width', 'height', 'max-width', 'max-height', 'object-fit']) {
         const value = (element as HTMLImageElement).style.getPropertyValue(property);
         if (value) (copy as HTMLImageElement).style.setProperty(property, value);
       }
+      const fit = styleOf(element).objectFit;
+      if (fit) (copy as HTMLImageElement).style.objectFit = fit;
+      // A gallery image remains content after its live preview action is gone.
+      copy.removeAttribute('role');
+      copy.removeAttribute('tabindex');
     }
     if (element.matches('img[data-chat-audio-cover]')) {
       // Audio artwork is content, but its display box lives on the parent.
