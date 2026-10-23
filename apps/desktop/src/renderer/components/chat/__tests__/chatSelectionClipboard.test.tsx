@@ -25,13 +25,15 @@ vi.mock('@/features/bots/BotCollaborationCard', () => ({
 }));
 vi.mock('@/features/learn/LearnStatusCard', () => ({ LearnStatusCard: () => null }));
 
+const { taskLink } = vi.hoisted(() => ({ taskLink: vi.fn() }));
+
 // Isolate task/plugin live stores, while testing their actual presentation below.
 vi.mock('@/cindy-brain/useInstalledGhosts', () => ({ useInstalledGhosts: () => [{
   manifest: { id: 'clipboard-plugin', name: 'Clipboard plugin' }, namespace: null, instanceKey: '_root__clipboard-plugin',
   iconDataUrl: 'https://example.com/plugin.png',
 }] }));
 vi.mock('@/cindy-brain/ghostUnreadStore', () => ({ useElementVisible: () => ({ ref: () => {}, visible: false }) }));
-vi.mock('@/features/bots/BotSessionTaskLink', () => ({ useBotTaskSession: () => ({
+vi.mock('@/features/bots/BotSessionTaskLink', () => ({ useBotTaskSession: () => taskLink() ?? ({
   resolved: true, targetId: null, row: null, session: null, activity: null,
 }) }));
 vi.mock('@/contexts/PrRefsContext', () => ({
@@ -60,6 +62,7 @@ vi.mock('react-i18next', async (importOriginal) => ({ ...(await importOriginal<t
 afterEach(() => {
   window.getSelection()?.removeAllRanges();
   cleanup();
+  taskLink.mockReset();
 });
 
 function setup(content: string | React.ReactNode) {
@@ -108,6 +111,42 @@ describe('chat selection clipboard', () => {
     expect(status).toBeTruthy();
     select(status.firstChild!);
     expect(copy().clipboardData.setData.mock.calls.every(([, value]) => value === '')).toBe(true);
+  });
+
+  // Review #4360830856: live/completed task actions are application controls,
+  // while the title and expanded result remain selectable message content.
+  it.each(['running', 'waiting', 'completed'] as const)('omits production task action chips (%s)', async (state) => {
+    taskLink.mockReturnValue({
+      resolved: true, targetId: 'child-task', open: vi.fn(), session: null, activity: null,
+      row: { status: state, createdAt: Date.now(), completedAt: null, artifacts: [], resultSummary: 'Task result' },
+    });
+    const { BotTaskCard } = await vi.importActual<typeof import('@/features/bots/BotCollaborationCard')>('@/features/bots/BotCollaborationCard');
+    const { root, select, copy } = setup(<><p>before task</p>
+      <BotTaskCard sessionId="parent-task" card={{ role: 'delegation-request', objective: 'Task title' } as React.ComponentProps<typeof BotTaskCard>['card']} />
+      <p>after task</p></>);
+    const buttons = [...root.querySelectorAll('button')];
+    expect(buttons.some(button => button.textContent?.includes(state === 'waiting' ? 'bots.collab.lookAt' : 'bots.collab.watchWork'))).toBe(true);
+    if (state === 'running') {
+      expect(buttons.some(button => button.textContent?.includes('bots.collab.addNote'))).toBe(true);
+      expect(buttons.some(button => button.textContent?.includes('bots.collab.stop'))).toBe(true);
+    }
+    if (state === 'completed') fireEvent.click(buttons.find(button => button.textContent?.includes('bots.collab.expandResult'))!);
+    select();
+    const formats = copy().clipboardData.setData.mock.calls;
+    expect(formats).toHaveLength(2);
+    for (const [, value] of formats) {
+      expect(value).not.toMatch(/bots\.collab\.(?:lookAt|watchWork|addNote|stop|expandResult|collapseResult)/);
+      expect(value).toContain('Task title');
+      expect(value).toContain('after task');
+      if (state === 'completed') expect(value).toContain('Task result');
+    }
+    const html = formats.find(([type]) => type === 'text/html')![1];
+    const pasted = document.createElement('div');
+    pasted.innerHTML = html;
+    // Running retains its adjacent status glyph, but no action-row icons.
+    expect(pasted.querySelectorAll('svg')).toHaveLength(state === 'running' ? 1 : 0);
+    // Excluding copy must not remove or disable the original task actions.
+    expect(root.querySelectorAll('button').length).toBeGreaterThan(1);
   });
 
   it('keeps production video poster proportions and plugin avatar bounds', () => {
