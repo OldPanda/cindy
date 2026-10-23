@@ -441,7 +441,7 @@ function RichAnswerDocument({
                       <dd>{item.value}</dd>
                     </div>
                     {richString(node, 'variant') !== 'line' && (
-                      <div className="rich-answer-track">
+                      <div className="rich-answer-track" data-chat-rich-bar>
                         <div
                           style={{
                             backgroundColor:

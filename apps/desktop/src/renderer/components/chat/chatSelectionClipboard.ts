@@ -113,6 +113,30 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
       needsRenderedPlainText = true;
       return null;
     }
+    if (element.matches('[data-chat-rich-bar]') &&
+        !['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) &&
+        inheritedStyle(element, 'user-select') !== 'none') {
+      const bar = element.firstElementChild as HTMLElement | null;
+      if (!bar) return null;
+      // Div backgrounds using currentColor are discarded by Chromium paste.
+      // Use one portable drawing instead; neutral ink inherits the destination,
+      // while explicit drawing paint and signed bar geometry remain content.
+      const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('data-chat-rich-bar', '');
+      svg.setAttribute('width', '100%');
+      svg.setAttribute('height', styleOf(element).height || '8px');
+      const rect = doc.createElementNS(svg.namespaceURI, 'rect');
+      rect.setAttribute('x', bar.style.marginLeft);
+      rect.setAttribute('width', bar.style.width);
+      rect.setAttribute('height', '100%');
+      rect.setAttribute('rx', styleOf(element).borderRadius || '0');
+      const paint = bar.style.backgroundColor;
+      const neutral = !paint || /^(?:currentcolor|var\(--(?:text-(?:primary|secondary|tertiary)|border-default)\))$/i.test(paint);
+      rect.setAttribute('fill', neutral ? 'currentColor'
+        : paint.startsWith('var(') ? styleOf(bar).backgroundColor : paint);
+      svg.appendChild(rect);
+      return svg;
+    }
     // Reference-chip icons are decoration, not selected message content.
     if (element.matches('svg') && element.closest('[data-inline-reference-chip] [aria-hidden="true"]')) return null;
     if (element.matches('[data-chat-mermaid] > svg, svg[data-chat-rich-svg]') && range.comparePoint(element, 0) === 0 &&

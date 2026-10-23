@@ -10,6 +10,7 @@ import { CopyAsImageBlock } from '../CopyAsImageBlock';
 import { RichAnswer } from '../RichAnswer';
 import { ChatVideoView } from '../ChatVideoView';
 import { ChatAudioCard } from '../ChatAudioCard';
+import { ChatSoundEffectCard } from '../ChatSoundEffectCard';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { MarkdownMermaidBlock } from '../MarkdownMermaidBlock';
 import { SystemCard } from '../SystemCard';
@@ -71,6 +72,33 @@ function setup(content: string | React.ReactNode) {
 }
 
 describe('chat selection clipboard', () => {
+  // Review #4359931559: the real bar renderer uses empty div geometry rather
+  // than SVG. Copy-entry unit regression protects signed/zero widths and paint;
+  // existing vector/line coverage does not reach this production branch.
+  it('retains production bar geometry with destination ink and explicit paint', () => {
+    const source = JSON.stringify({ version: 1, seq: 1, op: 'create', id: 'bars', kind: 'chart', props: {
+      label: 'Balances', variant: 'bar', colors: ['primary', 'success', 'primary'],
+      data: [{ label: 'Loss', value: -5 }, { label: 'Gain', value: 10 }, { label: 'Even', value: 0 }],
+    } });
+    const { root, select, copy } = setup(<><p>before bars</p>
+      <RichAnswer stateKey="clipboard-bars" source={source} complete renderMarkdown={text => <span>{text}</span>} />
+      <p>after bars</p></>);
+    select();
+    const pasted = document.createElement('div');
+    pasted.innerHTML = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')![1];
+    const tracks = [...pasted.querySelectorAll('svg[data-chat-rich-bar]')];
+    expect(tracks).toHaveLength(3);
+    const bars = tracks.map(track => track.firstElementChild!);
+    expect(bars.every(Boolean)).toBe(true);
+    expect(bars.map(bar => bar.getAttribute('width'))).toEqual(['33.33333333333333%', '66.66666666666666%', '0%']);
+    expect(bars.map(bar => bar.getAttribute('x'))).toEqual(['0%', '33.33333333333333%', '33.33333333333333%']);
+    expect(bars[0].getAttribute('fill')).toBe('currentColor');
+    expect(bars[1].getAttribute('fill')).toBe(getComputedStyle(root.querySelectorAll('.rich-answer-track > div')[1]).backgroundColor);
+    expect(pasted.textContent).toContain('Loss');
+    expect(pasted.textContent).toContain('Gain');
+    expect(pasted.textContent).toContain('after bars');
+  });
+
   // Review #4359639062: media-only button unwrapping misses selectable card
   // summaries. Render the actual context card and copy across its header;
   // unit/jsdom verifies plain summary content without a dead pasted button.
@@ -179,6 +207,7 @@ describe('chat selection clipboard', () => {
       <p>before media</p>
       <ChatVideoView src="https://example.com/clip.mp4" filename="clip.mp4" variant="tool-output" />
       <ChatAudioCard track={{ kind: 'music', audioUrl: 'https://example.com/song.mp3', coverUrl: 'https://example.com/cover.png', title: 'Song title', tags: 'Ambient', lyrics: '', durationSeconds: 30 }} />
+      <ChatSoundEffectCard track={{ kind: 'sound_effect', audioUrl: 'https://example.com/effect.mp3', coverUrl: '', title: 'Rain sound', tags: '', lyrics: '', durationSeconds: 30 }} />
       <MarkdownRenderer workingDir="" content="![Photo](https://example.com/photo.png)" />
       <div className="mermaid-sizing"><MarkdownMermaidBlock raw="graph TD; A-->B" /></div>
       <p>after media</p>
@@ -206,6 +235,7 @@ describe('chat selection clipboard', () => {
     expect(drawing.style.fill).toBe(getComputedStyle(root.querySelector('path[d="M0 0L20 20"]')!).fill);
     expect(drawing.style.stroke).toBe(getComputedStyle(root.querySelector('path[d="M0 0L20 20"]')!).stroke);
     expect(pasted.textContent).toContain('Song title');
+    expect(pasted.textContent).toContain('Rain sound');
     expect(pasted.textContent).toContain('diagram label');
     expect(pasted.textContent).toContain('before media');
     expect(pasted.textContent).toContain('after media');
