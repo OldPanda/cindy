@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import katex from 'katex';
 import { File } from 'lucide-react';
-import { installRendererSelectionStyles as productionSelectionCss } from '../../../../test/vitest/rendererSelectionStyles';
+import { installMermaidRendererStyles, installRendererSelectionStyles as productionSelectionCss } from '../../../../test/vitest/rendererSelectionStyles';
 import { InlineReferenceChip } from '../InlineReferenceChip';
 import { copyChatSelection } from '../chatSelectionClipboard';
 import { CopyAsImageBlock } from '../CopyAsImageBlock';
@@ -386,7 +386,7 @@ describe('chat selection clipboard', () => {
   it('copies real media components without preview controls or lost drawing/image presentation', async () => {
     productionSelectionCss();
     const { root, select, copy } = setup(<>
-      <style>{'.object-cover { object-fit: cover; } .object-contain { object-fit: contain; } .hidden { display: none; } .mermaid-sizing svg { max-width:100%; max-height:60vh; width:auto; height:auto; }'}</style>
+      <style>{'.object-cover { object-fit: cover; } .object-contain { object-fit: contain; } .hidden { display: none; }'}</style>
       <p>before media</p>
       <ChatImageView src="https://example.com/attachment.png" filename="Attachment" variant="user-attached" />
       <ChatImageView src="https://example.com/tool.png" filename="Tool image" variant="tool-output" />
@@ -394,13 +394,14 @@ describe('chat selection clipboard', () => {
       <ChatAudioCard track={{ kind: 'music', audioUrl: 'https://example.com/song.mp3', coverUrl: 'https://example.com/cover.png', title: 'Song title', tags: 'Ambient', lyrics: '', durationSeconds: 30 }} />
       <ChatSoundEffectCard track={{ kind: 'sound_effect', audioUrl: 'https://example.com/effect.mp3', coverUrl: '', title: 'Rain sound', tags: '', lyrics: '', durationSeconds: 30 }} />
       <MarkdownRenderer workingDir="" content="![Photo](https://example.com/photo.png)" />
-      <div className="mermaid-sizing"><MarkdownMermaidBlock raw="graph TD; A-->B" /></div>
+      <MarkdownMermaidBlock raw="graph TD; A-->B" />
       <p>after media</p>
     </>);
     fireEvent.load(root.querySelector('img[alt="Photo"]')!);
     fireEvent.load(root.querySelector('img[alt="Attachment"]')!);
     fireEvent.load(root.querySelector('img[alt="Tool image"]')!);
     await waitFor(() => expect(root.querySelector('path[d="M0 0L20 20"]')).toBeTruthy());
+    await installMermaidRendererStyles(root);
     select();
     const { clipboardData } = copy();
     const pasted = document.createElement('div');
@@ -425,8 +426,7 @@ describe('chat selection clipboard', () => {
     expect(cover.style.height).toBe('96px');
     expect(cover.style.objectFit).toBe('cover');
     const drawing = pasted.querySelector('path[d="M0 0L20 20"]') as SVGElement;
-    // Review #4334759240: production's parent CSS caps a large intrinsic SVG;
-    // those bounds must survive wrapper removal and portable copy.
+    // Compiled production utilities own these bounds; no fixture sizing rule.
     expect(drawing.ownerSVGElement!.style.maxWidth).toBe('100%');
     expect(drawing.ownerSVGElement!.style.maxHeight).toBe('60vh');
     expect(drawing.style.fill).toBe(getComputedStyle(root.querySelector('path[d="M0 0L20 20"]')!).fill);

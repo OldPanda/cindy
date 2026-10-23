@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import postcss from 'postcss';
+import tailwindcss from 'tailwindcss';
+import rendererTailwindConfig from '../../../tailwind.config';
 
 // Load production CSS as a behavioral fixture, not a source-text assertion.
 // jsdom cannot parse Tailwind/layer syntax. Keep the actual selection rules in
@@ -20,5 +22,39 @@ export function installRendererSelectionStyles(doc: Document = document): HTMLSt
   style.dataset.copyTest = '';
   style.textContent = css;
   doc.head.appendChild(style);
+  return style;
+}
+
+// Compile actual production classes; jsdom cannot match escaped arbitrary
+// Tailwind class names. Alias class tokens in both CSS and the rendered fixture,
+// retaining actual declarations/combinators/specificity. Native-browser checks
+// use the unmodified compiler output.
+let mermaidUtilities: Promise<{ css: string; aliases: Map<string, string> }> | undefined;
+export async function installMermaidRendererStyles(root: Element): Promise<HTMLStyleElement> {
+  mermaidUtilities ??= postcss([tailwindcss({
+    ...rendererTailwindConfig,
+    content: [resolve(__dirname, '../../renderer/components/chat/MarkdownMermaidBlock.tsx')],
+  })]).process('@tailwind utilities;', { from: undefined }).then(result => {
+    const aliases = new Map<string, string>();
+    result.root.walkRules(rule => {
+      rule.selector = rule.selector.replace(/\.((?:\\.|[\w-])+)/g, (_match, token: string) => {
+        const name = token.replace(/\\(.)/g, '$1');
+        if (!aliases.has(name)) aliases.set(name, `compiled-utility-${aliases.size}`);
+        return `.${aliases.get(name)}`;
+      });
+    });
+    return { css: result.root.toString(), aliases };
+  });
+  const { css: utilities, aliases } = await mermaidUtilities;
+  for (const element of [root, ...root.querySelectorAll('[class]')]) {
+    for (const name of [...element.classList]) {
+      const alias = aliases.get(name);
+      if (alias) element.classList.add(alias);
+    }
+  }
+  const style = root.ownerDocument.createElement('style');
+  style.dataset.copyTest = '';
+  style.textContent = utilities;
+  root.ownerDocument.head.appendChild(style);
   return style;
 }
