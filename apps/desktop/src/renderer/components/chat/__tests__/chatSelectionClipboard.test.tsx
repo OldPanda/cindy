@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import katex from 'katex';
 import { File } from 'lucide-react';
-import { installMermaidRendererStyles, installRendererSelectionStyles as productionSelectionCss } from '../../../../test/vitest/rendererSelectionStyles';
+import { installRendererClipboardStyles, installRendererSelectionStyles as productionSelectionCss } from '../../../../test/vitest/rendererSelectionStyles';
 import { InlineReferenceChip } from '../InlineReferenceChip';
 import { copyChatSelection } from '../chatSelectionClipboard';
 import { CopyAsImageBlock } from '../CopyAsImageBlock';
@@ -164,19 +164,17 @@ describe('chat selection clipboard', () => {
     expect(root.querySelectorAll('button').length).toBeGreaterThan(1);
   });
 
-  it('keeps production video poster proportions and plugin avatar bounds', () => {
+  it('keeps production video poster proportions and plugin avatar bounds', async () => {
     const { root, select, copy } = setup(<><p>before previews</p>
       <VideoSitePreview src="https://www.youtube.com/watch?v=dQw4w9WgXcQ" title="Video poster" />
       <GhostSummonCard directive={{ kind: 'mention', ghosts: [{ name: 'Clipboard plugin', ghostId: '_root__clipboard-plugin' }], raw: '' }} />
       <p>after previews</p></>);
-    // jsdom has no Tailwind layout. Supply only the class-based display sizes;
-    // aspectRatio/objectFit still come from the production video component.
+    // Actual production utilities own sizes; do not overwrite component output.
     const poster = root.querySelector('img[alt="Video poster"]') as HTMLImageElement;
     const avatar = root.querySelector('img[src="https://example.com/plugin.png"]') as HTMLImageElement;
     expect(poster).toBeTruthy();
     expect(avatar).toBeTruthy();
-    poster.style.width = '100%';
-    avatar.style.width = '14px'; avatar.style.height = '14px';
+    await installRendererClipboardStyles(root);
     select();
     const pasted = document.createElement('div');
     pasted.innerHTML = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')![1];
@@ -401,7 +399,7 @@ describe('chat selection clipboard', () => {
     fireEvent.load(root.querySelector('img[alt="Attachment"]')!);
     fireEvent.load(root.querySelector('img[alt="Tool image"]')!);
     await waitFor(() => expect(root.querySelector('path[d="M0 0L20 20"]')).toBeTruthy());
-    await installMermaidRendererStyles(root);
+    await installRendererClipboardStyles(root);
     select();
     const { clipboardData } = copy();
     const pasted = document.createElement('div');

@@ -29,11 +29,12 @@ export function installRendererSelectionStyles(doc: Document = document): HTMLSt
 // Tailwind class names. Alias class tokens in both CSS and the rendered fixture,
 // retaining actual declarations/combinators/specificity. Native-browser checks
 // use the unmodified compiler output.
-let mermaidUtilities: Promise<{ css: string; aliases: Map<string, string> }> | undefined;
-export async function installMermaidRendererStyles(root: Element): Promise<HTMLStyleElement> {
-  mermaidUtilities ??= postcss([tailwindcss({
+let rendererUtilities: Promise<{ css: string; aliases: Map<string, string> }> | undefined;
+export async function installRendererClipboardStyles(root: Element): Promise<HTMLStyleElement> {
+  rendererUtilities ??= postcss([tailwindcss({
     ...rendererTailwindConfig,
-    content: [resolve(__dirname, '../../renderer/components/chat/MarkdownMermaidBlock.tsx')],
+    content: ['MarkdownMermaidBlock', 'VideoSitePreview', 'GhostSummonCard'].map(name =>
+      resolve(__dirname, `../../renderer/components/chat/${name}.tsx`)),
   })]).process('@tailwind utilities;', { from: undefined }).then(result => {
     const aliases = new Map<string, string>();
     result.root.walkRules(rule => {
@@ -45,7 +46,7 @@ export async function installMermaidRendererStyles(root: Element): Promise<HTMLS
     });
     return { css: result.root.toString(), aliases };
   });
-  const { css: utilities, aliases } = await mermaidUtilities;
+  const { css: utilities, aliases } = await rendererUtilities;
   for (const element of [root, ...root.querySelectorAll('[class]')]) {
     for (const name of [...element.classList]) {
       const alias = aliases.get(name);
@@ -57,4 +58,22 @@ export async function installMermaidRendererStyles(root: Element): Promise<HTMLS
   style.textContent = utilities;
   root.ownerDocument.head.appendChild(style);
   return style;
+}
+
+// Dispatch through the rendered view's actual event ownership, never call the
+// handler directly; a missing onCopy must leave the event unhandled.
+export function copyRenderedSelection(element: Element) {
+  const doc = element.ownerDocument;
+  const selection = doc.getSelection()!;
+  const range = doc.createRange();
+  range.selectNodeContents(element);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  const formats = new Map<string, string>();
+  const event = new Event('copy', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'clipboardData', { value: {
+    setData: (type: string, value: string) => formats.set(type, value),
+  } });
+  try { element.dispatchEvent(event); } finally { selection.removeAllRanges(); }
+  return { event, formats };
 }
