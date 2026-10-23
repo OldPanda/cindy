@@ -14,6 +14,7 @@ import { ChatSoundEffectCard } from '../ChatSoundEffectCard';
 import { ChatImageView } from '../ChatImageView';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { MarkdownMermaidBlock } from '../MarkdownMermaidBlock';
+import { UserMessageImageLink } from '../UserMessageImageLink';
 import { SystemCard } from '../SystemCard';
 import { VideoSitePreview } from '../VideoSitePreview';
 import { GhostSummonCard } from '../GhostSummonCard';
@@ -39,6 +40,13 @@ vi.mock('@/features/bots/BotSessionTaskLink', () => ({ useBotTaskSession: () => 
 vi.mock('@/contexts/PrRefsContext', () => ({
   usePrActions: () => ({}), usePrRefsForSession: () => [],
   usePrStatuses: () => ({ statuses: new Map(), successfulStatuses: new Map() }),
+}));
+
+// Isolate filesystem lookup; FileTargetChip itself is rendered by Markdown.
+vi.mock('@/lib/localPathResolver', async original => ({
+  ...(await original<typeof import('@/lib/localPathResolver')>()),
+  peekResolveLocalPathSmart: (path: string) => path === '/tmp/clipboard-note.ts'
+    ? { status: 'unique', absPath: path, kind: 'file' } : undefined,
 }));
 
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'clipboard-owner' } }) }));
@@ -188,6 +196,32 @@ describe('chat selection clipboard', () => {
     expect(copiedAvatar.style.height).toBe('14px');
     expect(pasted.querySelector('button')).toBeNull();
     expect(pasted.textContent).toContain('after previews');
+  });
+
+  // Review #4361430969: other clickable content wrappers are not inline chips.
+  // Keep their labels/code and real links, but no detached activation semantics.
+  it.each([false, true])('copies actual file/image paths as inert content (global CSS=%s)', async (globalCss) => {
+    if (globalCss) productionSelectionCss();
+    const { root, select, copy } = setup(<><p>before paths</p>
+      <MarkdownRenderer workingDir="/tmp" content="`/tmp/clipboard-note.ts`" />
+      <UserMessageImageLink path="/tmp/clipboard-image.png" onOpen={vi.fn()} />
+      <a href="https://example.com/source">Source</a><p>after paths</p></>);
+    await waitFor(() => expect(root.querySelector('code[role="button"]')).toBeTruthy());
+    expect(root.querySelectorAll('[role="button"][tabindex="0"]')).toHaveLength(2);
+    select();
+    const formats = copy().clipboardData.setData.mock.calls;
+    expect(formats).toHaveLength(2);
+    for (const [, value] of formats) {
+      expect(value).toContain('/tmp/clipboard-note.ts');
+      expect(value).toContain('/tmp/clipboard-image.png');
+      expect(value).toContain('after paths');
+    }
+    const pasted = document.createElement('div');
+    pasted.innerHTML = formats.find(([type]) => type === 'text/html')![1];
+    expect(pasted.querySelector('code')?.textContent).toContain('/tmp/clipboard-note.ts');
+    expect(pasted.querySelector('[role="button"], [tabindex]')).toBeNull();
+    expect(pasted.querySelector('a')?.getAttribute('href')).toBe('https://example.com/source');
+    expect(root.querySelectorAll('[role="button"][tabindex="0"]')).toHaveLength(2);
   });
 
   // Review #4359931559: the real bar renderer uses empty div geometry rather
@@ -436,7 +470,7 @@ describe('chat selection clipboard', () => {
     const { clipboardData } = copy();
     const html = clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')?.[1];
     expect(html).not.toMatch(/hidden full message|quote summary|hidden panel/);
-    expect(html).toContain('<code role="button">file.ts</code>');
+    expect(html).toContain('<code>file.ts</code>');
     expect(html).toContain('start');
     expect(html).toContain('end');
   });

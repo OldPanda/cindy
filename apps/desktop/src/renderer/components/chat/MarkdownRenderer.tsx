@@ -1052,6 +1052,7 @@ function FileTargetChip({
   return (
     <>
       <code
+        data-chat-copy-content
         ref={chipRef}
         role="button"
         tabIndex={0}

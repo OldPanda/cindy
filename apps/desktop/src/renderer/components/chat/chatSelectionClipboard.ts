@@ -53,7 +53,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     if (inheritedStyle(element, 'user-select') !== 'none') return false;
     // These renderers identify message content inside preview/navigation
     // controls. Global control CSS must not erase their selected content.
-    if (element.closest('button[data-chat-copy-content], [data-inline-reference-chip]:not(.select-none), [data-chat-mermaid], [data-chat-image-preview], img')) {
+    if (element.closest('[data-chat-copy-content], [data-inline-reference-chip]:not(.select-none), [data-chat-mermaid], [data-chat-image-preview], img')) {
       needsRenderedPlainText = true;
       return false;
     }
@@ -64,8 +64,8 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   const shell = (element: Element): Element => {
     const copy = element.cloneNode(false) as Element;
     for (const attribute of ['style', 'class', 'bgcolor', 'color']) copy.removeAttribute(attribute);
-    if (element.matches('[data-inline-reference-chip]')) {
-      // React actions are not cloned. Export the reference label as ordinary
+    if (element.matches('[role="button"], [data-inline-reference-chip]') && !element.matches('a[href]')) {
+      // React actions are not cloned. Export clickable content as ordinary
       // content rather than a focusable control with no activation handler.
       for (const attribute of ['role', 'tabindex', 'aria-label', 'aria-expanded', 'aria-controls', 'aria-haspopup', 'data-split-pane-route-action']) copy.removeAttribute(attribute);
     }
