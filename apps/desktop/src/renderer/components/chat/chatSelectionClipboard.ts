@@ -49,11 +49,26 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     }
     return '';
   };
+  const unselectable = (element: Element): boolean => {
+    if (inheritedStyle(element, 'user-select') !== 'none') return false;
+    // These renderers identify message content inside preview/navigation
+    // controls. Global control CSS must not erase their selected content.
+    if (element.closest('button[data-chat-copy-content], [data-inline-reference-chip]:not(.select-none), [data-chat-mermaid], [data-chat-image-preview], img')) {
+      needsRenderedPlainText = true;
+      return false;
+    }
+    return true;
+  };
   const whitespaceOf = (element: Element): string => inheritedStyle(element, 'white-space');
   const preservesWhitespace = (value: string): boolean => /^(pre|pre-wrap|pre-line|break-spaces)$/.test(value);
   const shell = (element: Element): Element => {
     const copy = element.cloneNode(false) as Element;
     for (const attribute of ['style', 'class', 'bgcolor', 'color']) copy.removeAttribute(attribute);
+    if (element.matches('[data-inline-reference-chip]')) {
+      // React actions are not cloned. Export the reference label as ordinary
+      // content rather than a focusable control with no activation handler.
+      for (const attribute of ['role', 'tabindex', 'aria-label', 'aria-expanded', 'aria-controls', 'aria-haspopup', 'data-split-pane-route-action']) copy.removeAttribute(attribute);
+    }
     // Whitespace is content formatting, not a theme color. Preserve only this
     // allowlisted declaration so user-message newlines/indentation survive HTML paste.
     const whitespace = whitespaceOf(element);
@@ -120,8 +135,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     }
     if (node.nodeType === Node.TEXT_NODE) {
       const parent = node.parentElement!;
-      if (['hidden', 'collapse'].includes(inheritedStyle(parent, 'visibility')) ||
-          inheritedStyle(parent, 'user-select') === 'none') return null;
+      if (['hidden', 'collapse'].includes(inheritedStyle(parent, 'visibility')) || unselectable(parent)) return null;
       const start = node === range.startContainer ? range.startOffset : 0;
       const end = node === range.endContainer ? range.endOffset : node.textContent!.length;
       return doc.createTextNode(node.textContent!.slice(start, end));
@@ -144,7 +158,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     }
     if (element.matches('[data-chat-rich-bar]') &&
         !['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) &&
-        inheritedStyle(element, 'user-select') !== 'none') {
+        !unselectable(element)) {
       const bar = element.firstElementChild as HTMLElement | null;
       if (!bar) return null;
       // Div backgrounds using currentColor are discarded by Chromium paste.
@@ -171,7 +185,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     if (element.matches('[data-chat-mermaid] > svg, svg[data-chat-rich-svg]') && range.comparePoint(element, 0) === 0 &&
         range.comparePoint(element, element.childNodes.length) === 0 &&
         !['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) &&
-        inheritedStyle(element, 'user-select') !== 'none') {
+        !unselectable(element)) {
       // Complete content drawings are atomic. Each renderer determines which
       // presentation belongs to its drawing, rather than the surrounding chat.
       const copy = element.cloneNode(true) as SVGElement;
@@ -272,7 +286,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     }
     if (element.matches('li.task-list-item > input[type="checkbox"][disabled]')) {
       if (['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) ||
-          inheritedStyle(element, 'user-select') === 'none') return null;
+          unselectable(element)) return null;
       // Disabled GFM task checkboxes are content, rather than editable fields.
       // Unicode markers survive HTML consumers that discard form controls.
       needsRenderedPlainText = true;
@@ -307,7 +321,7 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
       (!element.hasChildNodes() && element.matches(SEMANTIC_CONTAINER_SELECTOR));
     if (!copy.hasChildNodes() && !preservesEmpty) return null;
     if (!copy.hasChildNodes() && (['hidden', 'collapse'].includes(inheritedStyle(element, 'visibility')) ||
-        inheritedStyle(element, 'user-select') === 'none')) return null;
+        unselectable(element))) return null;
     return copy;
   };
 

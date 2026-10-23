@@ -63,7 +63,20 @@ afterEach(() => {
   window.getSelection()?.removeAllRanges();
   cleanup();
   taskLink.mockReset();
+  document.querySelectorAll('style[data-copy-test]').forEach(style => style.remove());
 });
+
+// Model globals.css control selection in jsdom; the browser fixture loads the
+// actual CSS rules as well, so this unit fixture cannot mask integration drift.
+function productionSelectionCss() {
+  const style = document.createElement('style');
+  style.dataset.copyTest = '';
+  style.textContent = `button, [role='button'], [role='menuitem'], [role='option'], .select-none, .select-none * {
+    -webkit-user-select: none;
+    user-select: none;
+  }`;
+  document.head.appendChild(style);
+}
 
 function setup(content: string | React.ReactNode) {
   const view = render(typeof content === 'string'
@@ -116,6 +129,7 @@ describe('chat selection clipboard', () => {
   // Review #4360830856: live/completed task actions are application controls,
   // while the title and expanded result remain selectable message content.
   it.each(['running', 'waiting', 'completed'] as const)('omits production task action chips (%s)', async (state) => {
+    productionSelectionCss();
     taskLink.mockReturnValue({
       resolved: true, targetId: 'child-task', open: vi.fn(), session: null, activity: null,
       row: { status: state, createdAt: Date.now(), completedAt: null, artifacts: [], resultSummary: 'Task result' },
@@ -207,6 +221,7 @@ describe('chat selection clipboard', () => {
   // summaries. Render the actual context card and copy across its header;
   // unit/jsdom verifies plain summary content without a dead pasted button.
   it('copies a production context header as ordinary text while excluding marked controls', () => {
+    productionSelectionCss();
     const { root, select, copy } = setup(<>
       <p>before context</p>
       <SystemCard cardType="context" data={{ usage: {
@@ -306,6 +321,7 @@ describe('chat selection clipboard', () => {
   // remote URL resolution/drawing and export effects. Assert copied behavior,
   // not marker spellings or JSX/source text (unit/jsdom tier).
   it('copies real media components without preview controls or lost drawing/image presentation', async () => {
+    productionSelectionCss();
     const { root, select, copy } = setup(<>
       <style>{'.object-cover { object-fit: cover; } .object-contain { object-fit: contain; } .hidden { display: none; } .mermaid-sizing svg { max-width:100%; max-height:60vh; width:auto; height:auto; }'}</style>
       <p>before media</p>
@@ -610,7 +626,8 @@ describe('chat selection clipboard', () => {
   });
 
   it('keeps sent reference labels without exporting decorative icons or their theme', () => {
-    const chip = render(<InlineReferenceChip label="project/file.ts" icon={<File />} textSelectable />);
+    productionSelectionCss();
+    const chip = render(<InlineReferenceChip label="project/file.ts" icon={<File />} textSelectable onClick={vi.fn()} ariaLabel="Open file" />);
     const { select, copy } = setup(`<p>before</p><span style="color:purple;font-family:monospace">${chip.container.innerHTML}<svg class="other-icon" style="color:red" viewBox="0 0 10 10"><path class="stroke-theme" style="stroke:purple" d="M0 0L10 10"/><text>ordinary graphic</text></svg></span><p>after</p>`);
     select();
     const { clipboardData } = copy();
@@ -624,6 +641,8 @@ describe('chat selection clipboard', () => {
     expect(pasted.querySelectorAll('svg')).toHaveLength(1);
     expect(pasted.querySelector('svg path')?.getAttribute('d')).toBe('M0 0L10 10');
     expect(html).not.toMatch(/class=|color:|font-family:|stroke:/);
+    expect(pasted.querySelector('[role="button"], [tabindex], [aria-label="Open file"]')).toBeNull();
+    expect(chip.container.querySelector('[role="button"][tabindex="0"]')).toBeTruthy();
   });
 
   // Review 4333633275: opacity-only coverage missed hover/focus/fade states.

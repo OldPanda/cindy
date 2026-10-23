@@ -424,6 +424,7 @@ export function BotTaskCard({
         <StatusGlyph state={state} />
         <span className="sr-only">{statusLabel}</span>
         <button
+          data-chat-copy-content
           type="button"
           disabled={!canOpen}
           onClick={ref.open}
