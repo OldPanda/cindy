@@ -120,10 +120,24 @@ describe('model Orca cleanup authority', () => {
       deps.forgetWorkerSession = vi.fn(id => { forget?.(id); if (phase === 'after-write') allowed = false; });
       const focus = vi.fn(async () => { if (phase === 'after-write') allowed = false; });
       const resume = vi.fn(async () => undefined);
+      // switch_focus 的冷启预热现在走共享调度器（MCP 与 renderer 两条路径一致）：
+      // 权威校验留在同步路径（撤销则整个 switchFocus 失败，与上游一致），调度器
+      // 只负责不阻塞。这里同步触发 resume 保持断言确定性，错误交给 onError。
+      const orcaWorkerResumeScheduler = {
+        requestInBackground: (
+          _target: unknown,
+          onError: (error: unknown) => void,
+          opts?: { assertCurrent?: () => Promise<void> },
+        ) => {
+          void opts?.assertCurrent?.().catch(onError);
+          void resume().catch(onError);
+        },
+      };
       const api = compile({
         captureOrcaPluginAuthority: async () => { await assertCurrent(); return { assertCurrent }; },
         orcaTeamService: service, listWorkersByLead: deps.listWorkersByLead, findFocusTargetWorker,
         setWorkerFocus: focus, resumeOrcaWorkerSessionIfMissing: resume,
+        orcaWorkerResumeScheduler, log: { warn: vi.fn() },
         broadcastToAllWindows: vi.fn(), MAKER_PUSH: { ORCA_WORKER_CHANGED: 'changed' },
       });
       const result = await api[action]({ callerLeadSessionId: 'lead-1', leadSessionId: 'lead-1', workerId: 'worker-1', workerIdOrLabel: 'worker-1' });
@@ -151,6 +165,8 @@ describe('model Orca cleanup authority', () => {
         recycleSessionWorktreeForStatusChange: vi.fn(), captureSessionRecycleScope: vi.fn(),
         cleanupPendingInteractionsForSession: vi.fn(), forgetKnownOrcaWorkerSession: vi.fn(),
         markTeamEnded: vi.fn(), markWorkersStatusByTeam: vi.fn(), archiveWorkersByTeam: archive,
+        // 关闭协同会先取消未落地的后台预热（review P1）。
+        orcaWorkerResumeScheduler: { cancel: vi.fn() },
         broadcastToAllWindows: vi.fn(), MAKER_PUSH: { ORCA_WORKER_CHANGED: 'changed' }, log: { info: vi.fn(), warn: vi.fn() },
         orcaRemoteWorkers: { releaseEnded: vi.fn(async () => undefined) },
       };
@@ -201,6 +217,133 @@ describe('findFocusTargetWorker', () => {
     const noLabel = createWorker({ id: 'wid-c', sessionId: 'sid-c', label: null });
     expect(findFocusTargetWorker([noLabel], 'wid-c')).toBe(noLabel);
     expect(findFocusTargetWorker([noLabel], 'whatever')).toBeNull();
+  });
+});
+
+describe('OrcaTeamService updateWorker', () => {
+  it('normalizes role/label, writes once, and broadcasts to the lead', async () => {
+    const { deps, service, getWorker } = createDeps();
+    const result = await service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+      role: '  Reviewer  ',
+      label: ' Backend-2 ',
+    });
+    expect(result).toEqual({ ok: true, workerId: 'worker-1', role: 'Reviewer', label: 'backend-2' });
+    expect(deps.updateWorkerIdentity).toHaveBeenCalledWith({
+      workerId: 'worker-1',
+      role: 'Reviewer',
+      label: 'backend-2',
+      previousRole: 'Researcher',
+      previousLabel: 'research',
+    });
+    expect(deps.broadcastOrcaWorkerChanged).toHaveBeenCalledWith('lead-1');
+    expect(getWorker()).toMatchObject({ role: 'Reviewer', label: 'backend-2' });
+  });
+
+  it('is idempotent when nothing changes', async () => {
+    const { deps, service } = createDeps();
+    const result = await service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+      role: 'Researcher',
+      label: 'research',
+    });
+    expect(result).toEqual({ ok: true, workerId: 'worker-1', role: 'Researcher', label: 'research' });
+    expect(deps.updateWorkerIdentity).not.toHaveBeenCalled();
+    expect(deps.broadcastOrcaWorkerChanged).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-lead refs, invalid input, and an empty patch', async () => {
+    const { deps, service } = createDeps();
+    await expect(service.updateWorker({
+      callerLeadSessionId: 'lead-2',
+      workerId: 'worker-1',
+      role: 'Reviewer',
+    })).resolves.toMatchObject({ ok: false, errorCode: 'WORKER_NOT_FOUND' });
+    await expect(service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+    })).resolves.toMatchObject({ ok: false, errorCode: 'INVALID_PARAMS' });
+    await expect(service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+      role: '   ',
+    })).resolves.toMatchObject({ ok: false, errorCode: 'INVALID_PARAMS' });
+    await expect(service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+      label: '前端',
+    })).resolves.toMatchObject({ ok: false, errorCode: 'INVALID_PARAMS' });
+    expect(deps.updateWorkerIdentity).not.toHaveBeenCalled();
+  });
+
+  it('maps the store duplicate-label result without broadcasting', async () => {
+    const { deps, service } = createDeps({
+      updateWorkerIdentity: vi.fn(async () => ({ ok: false as const, errorCode: 'DUPLICATE_LABEL' as const })),
+    });
+    await expect(service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+      label: 'reviewer',
+    })).resolves.toMatchObject({ ok: false, errorCode: 'DUPLICATE_LABEL' });
+    expect(deps.broadcastOrcaWorkerChanged).not.toHaveBeenCalled();
+  });
+
+  it('serializes concurrent partial renames so the later one merges the earlier result', async () => {
+    const { deps, service, getWorker } = createDeps();
+    const original = deps.updateWorkerIdentity;
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    let writes = 0;
+    deps.updateWorkerIdentity = vi.fn(async (input) => {
+      writes += 1;
+      if (writes === 1) await firstGate;
+      return original(input);
+    });
+
+    const roleOnly = service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+      role: 'Reviewer',
+    });
+    const labelOnly = service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+      label: 'backend-2',
+    });
+
+    releaseFirst();
+    await expect(Promise.all([roleOnly, labelOnly])).resolves.toEqual([
+      { ok: true, workerId: 'worker-1', role: 'Reviewer', label: 'research' },
+      { ok: true, workerId: 'worker-1', role: 'Reviewer', label: 'backend-2' },
+    ]);
+    expect(getWorker()).toMatchObject({ role: 'Reviewer', label: 'backend-2' });
+  });
+
+  it('rejects a label rename locked by the active plugin team plan but still allows role changes', async () => {
+    const isWorkerLabelLockedByPlan = vi.fn(async () => true);
+    const { deps, service, getWorker } = createDeps({ isWorkerLabelLockedByPlan });
+
+    await expect(service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+      label: 'backend-2',
+    })).resolves.toMatchObject({ ok: false, errorCode: 'WORKER_STATE_CHANGED' });
+    expect(isWorkerLabelLockedByPlan).toHaveBeenCalledWith({
+      leadSessionId: 'lead-1',
+      labels: ['research', 'backend-2'],
+    });
+    expect(deps.updateWorkerIdentity).not.toHaveBeenCalled();
+
+    // 计划只按 label 寻址，role 改名不受影响，也不触发计划查询。
+    await expect(service.updateWorker({
+      callerLeadSessionId: 'lead-1',
+      workerId: 'worker-1',
+      role: 'Reviewer',
+    })).resolves.toMatchObject({ ok: true, role: 'Reviewer', label: 'research' });
+    expect(isWorkerLabelLockedByPlan).toHaveBeenCalledTimes(1);
+    expect(getWorker()).toMatchObject({ role: 'Reviewer', label: 'research' });
   });
 });
 
@@ -311,6 +454,15 @@ function createDeps(overrides: Partial<OrcaTeamServiceDeps> = {}) {
     }),
     restoreManualInterrupt: vi.fn((_sessionId, snapshot) => {
       manualInterrupt = snapshot;
+    }),
+    updateWorkerIdentity: vi.fn(async (input) => {
+      calls.push(`updateWorkerIdentity:${input.role}:${input.label}`);
+      workers = workers.map((worker) =>
+        worker.id === input.workerId
+          ? { ...worker, role: input.role, label: input.label }
+          : worker,
+      );
+      return { ok: true as const };
     }),
     broadcastOrcaWorkerChanged: vi.fn(() => {
       calls.push('broadcastOrcaWorkerChanged');
@@ -558,7 +710,24 @@ describe('OrcaTeamService', () => {
       finalText: '完成了',
     });
 
-    expect(leadMessages).toEqual(['[Auto-bridged: worker 完成但未调 send_to_lead]\n\n完成了']);
+    expect(leadMessages).toEqual(['[Auto-bridged: worker 已完成，系统自动回传结果]\n\n完成了']);
+  });
+
+  it('forwards imagePaths through dispatchWorkerTask to the shared primitive', async () => {
+    const { deps, service } = createDeps();
+
+    await expect(
+      service.dispatchWorkerTask({
+        targetSessionId: 'worker-session-1',
+        message: '看截图',
+        imagePaths: ['C:/tmp/a.png'],
+        dispatchMeta: { source: 'test-source', context: 'images' },
+      }),
+    ).resolves.toMatchObject({ dispatched: true });
+
+    expect(deps.dispatchWorkerMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ imagePaths: ['C:/tmp/a.png'] }),
+    );
   });
 
   it('resumes a stale running worker before dispatching the next task', async () => {
@@ -1210,7 +1379,7 @@ describe('OrcaTeamService', () => {
       finalText: '完成了',
     });
 
-    expect(leadMessages).toEqual(['[Auto-bridged: worker 完成但未调 send_to_lead]\n\n完成了']);
+    expect(leadMessages).toEqual(['[Auto-bridged: worker 已完成，系统自动回传结果]\n\n完成了']);
   });
 
   it('rolls back running status and pending auto-bridge when accepted dispatch returns failure', async () => {
@@ -1493,8 +1662,8 @@ describe('OrcaTeamService', () => {
 
     expect(sendAutoBridgeToLead).toHaveBeenCalledTimes(2);
     expect(leadMessages).toEqual([
-      '[Auto-bridged: worker 完成但未调 send_to_lead]\n\n第一次结果',
-      '[Auto-bridged: worker 完成但未调 send_to_lead]\n\n第二次结果',
+      '[Auto-bridged: worker 已完成，系统自动回传结果]\n\n第一次结果',
+      '[Auto-bridged: worker 已完成，系统自动回传结果]\n\n第二次结果',
     ]);
   });
 
@@ -1535,6 +1704,23 @@ describe('OrcaTeamService', () => {
     expect(service.hasPendingWorkerReports('lead-1')).toBe(false);
     expect(onLeadWorkerReportsSettled).toHaveBeenCalledTimes(1);
     expect(onLeadWorkerReportsSettled).toHaveBeenCalledWith('lead-1');
+  });
+
+  // Cross-device manual reporting settles the same TeamService identity as auto-bridge.
+  // Existing local/manual status tests did not cover a report arriving before the first poll.
+  it('settles an attested remote report once and leaves a newer assignment pending', async () => {
+    const { service, deps, getWorker } = createDeps();
+    await service.sendToWorker({ callerLeadSessionId: 'lead-1', targetSessionId: 'worker-session-1', message: 'first' });
+    const first = service.captureWorkerTerminalTurn('worker-session-1');
+    await service.settleReportedWorker(first);
+    expect(getWorker().status).toBe('done');
+    expect(service.hasPendingWorkerReports('lead-1')).toBe(false);
+    await service.handleWorkerTerminalTurn({ sessionId: 'worker-session-1', status: 'done', finalText: 'reported', capture: first });
+    expect(deps.sendAutoBridgeToLead).not.toHaveBeenCalled();
+    await service.sendToWorker({ callerLeadSessionId: 'lead-1', targetSessionId: 'worker-session-1', message: 'second' });
+    await service.settleReportedWorker(first);
+    expect(service.hasPendingWorkerReports('lead-1')).toBe(true);
+    expect(getWorker().status).toBe('running');
   });
 
   it('keeps the lead report outstanding while delivery is rejected', async () => {
@@ -1917,7 +2103,7 @@ describe('OrcaTeamService', () => {
       capture: replacementCapture,
     });
     expect(leadMessages).toEqual([
-      '[Auto-bridged: worker 完成但未调 send_to_lead]\n\nreplacement output',
+      '[Auto-bridged: worker 已完成，系统自动回传结果]\n\nreplacement output',
     ]);
   });
 
@@ -2005,7 +2191,7 @@ describe('OrcaTeamService', () => {
       capture: service.captureWorkerTerminalTurn('worker-session-1'),
     });
     expect(leadMessages).toEqual([
-      '[Auto-bridged: worker 完成但未调 send_to_lead]\n\nfollow-up output',
+      '[Auto-bridged: worker 已完成，系统自动回传结果]\n\nfollow-up output',
     ]);
   });
 
@@ -2040,7 +2226,7 @@ describe('OrcaTeamService', () => {
         'broadcastOrcaWorkerChanged',
       ]);
       expect(leadMessages).toEqual([
-        `${status === 'error' ? '[Auto-bridged: worker 异常终止]' : '[Auto-bridged: worker 完成但未调 send_to_lead]'}\n\n完成了`,
+        `${status === 'error' ? '[Auto-bridged: worker 异常终止]' : '[Auto-bridged: worker 已完成，系统自动回传结果]'}\n\n完成了`,
       ]);
     },
   );
@@ -2097,8 +2283,8 @@ describe('OrcaTeamService', () => {
     });
 
     expect(leadMessages).toEqual([
-      '[Auto-bridged: worker 完成但未调 send_to_lead]\n\n旧输出',
-      '[Auto-bridged: worker 完成但未调 send_to_lead]\n\n(no output captured)',
+      '[Auto-bridged: worker 已完成，系统自动回传结果]\n\n旧输出',
+      '[Auto-bridged: worker 已完成，系统自动回传结果]\n\n(no output captured)',
     ]);
   });
 
@@ -2124,7 +2310,7 @@ describe('OrcaTeamService', () => {
       finalText: '',
     });
 
-    expect(leadMessages).toEqual(['[Auto-bridged: worker 完成但未调 send_to_lead]\n\n部分输出']);
+    expect(leadMessages).toEqual(['[Auto-bridged: worker 已完成，系统自动回传结果]\n\n部分输出']);
   });
 
   it('bridges the terminal diagnostic when an errored worker produced no output', async () => {
@@ -3291,6 +3477,52 @@ describe('OrcaTeamService worker queued message control', () => {
       senderLabel: 'Lead',
       displayText: 'merged task',
     });
+  });
+
+  it('keeps merged items images on the survivor in queue order', async () => {
+    const imageFile = (name: string) => ({
+      id: `file-${name}`,
+      name,
+      path: `/tmp/${name}`,
+      ext: '.png',
+      size: 10,
+      category: 'image' as const,
+      mimeType: 'image/png',
+    });
+    let queue = [
+      { ...queuedItem('q1', leadOrigin, 'one'), files: [imageFile('a.png')] },
+      { ...queuedItem('q2', leadOrigin, 'two'), files: [imageFile('b.png'), imageFile('c.png')] },
+      queuedItem('q3', leadOrigin, 'three'),
+    ];
+    const mergeQueuedMessages = vi.fn((_sessionId, ids, buildReplacement) => {
+      const targets = queue.slice(0, ids.length);
+      const replacement = buildReplacement(targets);
+      if (!replacement) return false;
+      queue = [replacement, ...queue.slice(ids.length)];
+      return true;
+    });
+    const { service } = createDeps({
+      getSessionQueueSnapshot: vi.fn(async () => ({
+        pendingQueue: queue,
+        steeringClientIds: [],
+        consumingClientIds: [],
+        isWorking: true,
+        willQueue: true,
+        queuePaused: false,
+      })),
+      mergeQueuedMessages,
+    });
+
+    await expect(
+      service.mergeWorkerQueuedMessages({
+        callerLeadSessionId: 'lead-1',
+        workerRef: 'worker-1',
+        queuedMessageIds: ['q1', 'q2'],
+        message: 'merged task',
+      }),
+    ).resolves.toMatchObject({ ok: true, queuedMessageId: 'q1' });
+
+    expect(queue[0]?.files?.map((file) => file.name)).toEqual(['a.png', 'b.png', 'c.png']);
   });
 
   it('returns QUEUE_CHANGED with the latest full queue and no partial mutation', async () => {
