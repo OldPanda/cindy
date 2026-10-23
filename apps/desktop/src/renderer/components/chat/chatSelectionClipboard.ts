@@ -58,6 +58,23 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     // allowlisted declaration so user-message newlines/indentation survive HTML paste.
     const whitespace = whitespaceOf(element);
     if (preservesWhitespace(whitespace)) copy.setAttribute('style', `white-space: ${whitespace};`);
+    if (element.matches('img:not([data-gallery-src]):not([data-chat-audio-cover])') &&
+        !element.closest('[data-chat-image-preview]')) {
+      // Content images also occur outside gallery wrappers (site posters and
+      // plugin avatars). Materialize class-based geometry before removing CSS.
+      const image = element as HTMLImageElement;
+      const target = copy as HTMLImageElement;
+      const computed = styleOf(element);
+      for (const property of ['width', 'height', 'max-width', 'max-height', 'aspect-ratio', 'object-fit']) {
+        const value = image.style.getPropertyValue(property) || computed.getPropertyValue(property);
+        if (value && value !== 'none' && value !== 'auto') target.style.setProperty(property, value);
+      }
+      if (!target.style.maxWidth) target.style.maxWidth = '100%';
+      // A poster's authored ratio must remain responsive in a narrower target.
+      if (target.style.aspectRatio && !image.style.height) target.style.height = 'auto';
+      target.removeAttribute('role');
+      target.removeAttribute('tabindex');
+    }
     if (element.matches('[data-chat-image-preview] img, img[data-gallery-src]')) {
       // The image is content; the surrounding lightbox button is application
       // chrome. Keep only its inline sizing limits, never theme declarations.
@@ -86,6 +103,13 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   };
   const cloneSelected = (node: Node): Node | null => {
     if (!range.intersectsNode(node)) return null;
+    // Screen-reader copies must not become visible when their clipping class
+    // is stripped, including selections whose common ancestor is inside one.
+    const sourceElement = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
+    if (sourceElement?.closest('.sr-only')) {
+      needsRenderedPlainText = true;
+      return null;
+    }
     // Closed disclosures hide their body through UA rendering, not computed
     // display/visibility. Only their first direct summary is rendered.
     const parent = node.parentElement;

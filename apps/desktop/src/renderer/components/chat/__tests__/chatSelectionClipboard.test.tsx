@@ -15,6 +15,8 @@ import { ChatImageView } from '../ChatImageView';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { MarkdownMermaidBlock } from '../MarkdownMermaidBlock';
 import { SystemCard } from '../SystemCard';
+import { VideoSitePreview } from '../VideoSitePreview';
+import { GhostSummonCard } from '../GhostSummonCard';
 
 // Other SystemCard variants are unrelated to the context header under test.
 vi.mock('@/features/bots/useRemoteBots', () => ({ useRemoteBots: () => [] }));
@@ -22,6 +24,20 @@ vi.mock('@/features/bots/BotCollaborationCard', () => ({
   BotSessionTaskCard: () => null, BotSessionTaskMessageTrace: () => null,
 }));
 vi.mock('@/features/learn/LearnStatusCard', () => ({ LearnStatusCard: () => null }));
+
+// Isolate task/plugin live stores, while testing their actual presentation below.
+vi.mock('@/cindy-brain/useInstalledGhosts', () => ({ useInstalledGhosts: () => [{
+  manifest: { id: 'clipboard-plugin', name: 'Clipboard plugin' }, namespace: null, instanceKey: '_root__clipboard-plugin',
+  iconDataUrl: 'https://example.com/plugin.png',
+}] }));
+vi.mock('@/cindy-brain/ghostUnreadStore', () => ({ useElementVisible: () => ({ ref: () => {}, visible: false }) }));
+vi.mock('@/features/bots/BotSessionTaskLink', () => ({ useBotTaskSession: () => ({
+  resolved: true, targetId: null, row: null, session: null, activity: null,
+}) }));
+vi.mock('@/contexts/PrRefsContext', () => ({
+  usePrActions: () => ({}), usePrRefsForSession: () => [],
+  usePrStatuses: () => ({ statuses: new Map(), successfulStatuses: new Map() }),
+}));
 
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'clipboard-owner' } }) }));
 vi.mock('@/hooks/useRemoteMediaUrl', () => ({ useRemoteMediaUrl: (url: string) => url }));
@@ -73,6 +89,54 @@ function setup(content: string | React.ReactNode) {
 }
 
 describe('chat selection clipboard', () => {
+  // Reviews #4360500198/#4360500214: copy the real task status and
+  // unmarked video/plugin images; existing gallery fixtures miss these paths.
+  it('omits the production screen-reader status without dropping the task title', async () => {
+    const { BotTaskCard } = await vi.importActual<typeof import('@/features/bots/BotCollaborationCard')>('@/features/bots/BotCollaborationCard');
+    const { root, select, copy } = setup(<><p>before task</p>
+      <BotTaskCard card={{ role: 'delegation-request', objective: 'Task title' } as React.ComponentProps<typeof BotTaskCard>['card']} />
+      <p>after task</p></>);
+    expect(root.querySelector('.sr-only')?.textContent).toBe('bots.collab.status.unknown');
+    select();
+    const formats = copy().clipboardData.setData.mock.calls;
+    for (const [, value] of formats) {
+      expect(value).not.toContain('bots.collab.status.unknown');
+      expect(value).toContain('Task title');
+      expect(value).toContain('after task');
+    }
+    const status = root.querySelector('.sr-only')!;
+    expect(status).toBeTruthy();
+    select(status.firstChild!);
+    expect(copy().clipboardData.setData.mock.calls.every(([, value]) => value === '')).toBe(true);
+  });
+
+  it('keeps production video poster proportions and plugin avatar bounds', () => {
+    const { root, select, copy } = setup(<><p>before previews</p>
+      <VideoSitePreview src="https://www.youtube.com/watch?v=dQw4w9WgXcQ" title="Video poster" />
+      <GhostSummonCard directive={{ kind: 'mention', ghosts: [{ name: 'Clipboard plugin', ghostId: '_root__clipboard-plugin' }], raw: '' }} />
+      <p>after previews</p></>);
+    // jsdom has no Tailwind layout. Supply only the class-based display sizes;
+    // aspectRatio/objectFit still come from the production video component.
+    const poster = root.querySelector('img[alt="Video poster"]') as HTMLImageElement;
+    const avatar = root.querySelector('img[src="https://example.com/plugin.png"]') as HTMLImageElement;
+    expect(poster).toBeTruthy();
+    expect(avatar).toBeTruthy();
+    poster.style.width = '100%';
+    avatar.style.width = '14px'; avatar.style.height = '14px';
+    select();
+    const pasted = document.createElement('div');
+    pasted.innerHTML = copy().clipboardData.setData.mock.calls.find(([type]) => type === 'text/html')![1];
+    const copiedPoster = pasted.querySelector('img[alt="Video poster"]') as HTMLImageElement;
+    expect(copiedPoster.style.width).toBe('100%');
+    expect(copiedPoster.style.aspectRatio).toBe('16 / 9');
+    expect(copiedPoster.style.objectFit).toBe('contain');
+    const copiedAvatar = pasted.querySelector('img[src="https://example.com/plugin.png"]') as HTMLImageElement;
+    expect(copiedAvatar.style.width).toBe('14px');
+    expect(copiedAvatar.style.height).toBe('14px');
+    expect(pasted.querySelector('button')).toBeNull();
+    expect(pasted.textContent).toContain('after previews');
+  });
+
   // Review #4359931559: the real bar renderer uses empty div geometry rather
   // than SVG. Copy-entry unit regression protects signed/zero widths and paint;
   // existing vector/line coverage does not reach this production branch.
