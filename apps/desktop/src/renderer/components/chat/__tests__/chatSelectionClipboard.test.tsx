@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import katex from 'katex';
 import { File } from 'lucide-react';
+import { Provider as TooltipProvider } from '@radix-ui/react-tooltip';
+import { MessageActionBar, BubbleHoverToolbar } from '../MessageActionBar';
 import { installRendererClipboardStyles, installRendererSelectionStyles as productionSelectionCss } from '../../../../test/vitest/rendererSelectionStyles';
 import { InlineReferenceChip } from '../InlineReferenceChip';
 import { copyChatSelection } from '../chatSelectionClipboard';
@@ -63,7 +65,7 @@ vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect()
 vi.mock('../useCopyAsImage', () => ({
   useCopyAsImage: () => ({ copiedImage: false, copyAsImage: vi.fn(), canAnnotate: true, openAnnotate: vi.fn(), annotateNode: null }),
 }));
-vi.mock('react-i18next', async (importOriginal) => ({ ...(await importOriginal<typeof import('react-i18next')>()), useTranslation: () => ({ t: (key: string, vars?: { count?: unknown }) => vars?.count === undefined ? key : `${key}:${vars.count}` }) }));
+vi.mock('react-i18next', async (importOriginal) => ({ ...(await importOriginal<typeof import('react-i18next')>()), useTranslation: () => ({ i18n: { language: 'en' }, t: (key: string, vars?: { count?: unknown }) => vars?.count === undefined ? key : `${key}:${vars.count}` }) }));
 
 // Regression: selecting chat text and copying to a rich-text editor carries
 // Cindy's background/theme. Existing copy-button tests do not exercise native
@@ -103,6 +105,58 @@ function setup(content: string | React.ReactNode) {
 }
 
 describe('chat selection clipboard', () => {
+  // Review #4367801832: existing tool/card cases miss message-level chrome.
+  // Unit: render the actual action bar, select across it, and export through
+  // production copy. Time/cost/token state must stay out of both formats,
+  // including visible/fading bars; selected message text must remain.
+  it.each([true, false].flatMap(money => [1, 0.5, 0].map(opacity => ({ money, opacity }))))('omits message action metadata (money=$money, opacity=$opacity)', ({ money, opacity }) => {
+    productionSelectionCss();
+    const { root, select, copy } = setup(<TooltipProvider><p>Message body</p>
+      <MessageActionBar copyText="Message body" align="left" hovered
+        createdAt={new Date(Date.now() - 180_000).toISOString()}
+        turnMoney={money ? { currency: 'USD', amount: 0.03, approximate: false, kind: 'actual-cost' } : undefined}
+        turnUsageDetails={{ inputTokens: 12000, outputTokens: 300, cacheReadTokens: 0, cacheCreateTokens: 0, totalTokens: 12300, cacheHitRate: 0 }} />
+      <p>Next message</p></TooltipProvider>);
+    const time = root.querySelector('time')!;
+    const bar = time.closest('[data-share-exclude]') as HTMLElement;
+    bar.style.opacity = String(opacity);
+    const metadata = money ? '$0.03' : 'chat.messageActionBar.turnTokens';
+    expect(time.textContent).toBeTruthy();
+    expect(bar.textContent).toContain(metadata);
+    select();
+    const formats = copy().clipboardData.setData.mock.calls;
+    expect(formats.map(([format]) => format).sort()).toEqual(['text/html', 'text/plain']);
+    for (const [, value] of formats) {
+      expect(value).toContain('Message body');
+      expect(value).toContain('Next message');
+      expect(value).not.toContain(time.textContent!);
+      expect(value).not.toContain(metadata);
+    }
+    // The common selection ancestor may itself be inside the excluded bar.
+    select(time.firstChild!);
+    const excluded = copy();
+    expect(excluded.event.defaultPrevented).toBe(true);
+    expect(excluded.clipboardData.setData).toHaveBeenCalledTimes(2);
+    expect(excluded.clipboardData.setData.mock.calls.every(([, value]) => value === '')).toBe(true);
+  });
+
+  it('omits the open production bubble toolbar frame and its non-button chrome', () => {
+    const { root, select, copy } = setup(<><p>Message body</p>
+      <BubbleHoverToolbar side="left" open><span>Bubble toolbar status</span></BubbleHoverToolbar>
+      <p>Next message</p></>);
+    const frame = root.querySelector('[data-share-exclude]') as HTMLElement;
+    frame.style.opacity = '1';
+    expect(frame.textContent).toBe('Bubble toolbar status');
+    select();
+    const formats = copy().clipboardData.setData.mock.calls;
+    expect(formats).toHaveLength(2);
+    for (const [, value] of formats) {
+      expect(value).toContain('Message body');
+      expect(value).toContain('Next message');
+      expect(value).not.toContain('Bubble toolbar status');
+    }
+  });
+
   // Reviews #4360500198/#4360500214: copy the real task status and
   // unmarked video/plugin images; existing gallery fixtures miss these paths.
   it('omits the production screen-reader status without dropping the task title', async () => {

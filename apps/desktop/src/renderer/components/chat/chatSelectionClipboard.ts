@@ -118,10 +118,10 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
   };
   const cloneSelected = (node: Node): Node | null => {
     if (!range.intersectsNode(node)) return null;
-    // Screen-reader copies must not become visible when their clipping class
-    // is stripped, including selections whose common ancestor is inside one.
+    // Application chrome and screen-reader copies are excluded even when the
+    // selection starts inside them, bypassing their marked wrapper entirely.
     const sourceElement = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
-    if (sourceElement?.closest('.sr-only')) {
+    if (sourceElement?.closest('.sr-only, [data-chat-video-preview], [data-chat-copy-exclude]')) {
       needsRenderedPlainText = true;
       return null;
     }
@@ -142,13 +142,6 @@ export function copyChatSelection(event: ClipboardEvent<HTMLElement>): void {
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return null;
     const element = node as Element;
-    if (element.matches('[data-chat-video-preview], [data-chat-copy-exclude]')) {
-      // Application controls are not message content, even while hovered,
-      // focused or fading. Omit video previews atomically as well, rather than
-      // leaving their detached play overlay in a mixed text selection.
-      needsRenderedPlainText = true;
-      return null;
-    }
     if (styleOf(element).display === 'none' || styleOf(element).contentVisibility === 'hidden') return null;
     if (styleOf(element).opacity === '0') {
       // Hover-only controls must not become visible after theme classes are
