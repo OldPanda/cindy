@@ -129,6 +129,55 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('ComputerUseSection browser backend health loading', () => {
+  // Regression: the real settings component must remain usable while the external
+  // browser's serialized status call waits. Existing cases cover health/computer
+  // probes, but not browser availability. Tier: unit; no clock or native process.
+  it('keeps Automation usable while browser availability is pending', async () => {
+    const initialBrowser = deferred<BrowserAvailability>();
+    api.getBrowserStatus.mockReturnValueOnce(initialBrowser.promise);
+    api.getBackendState.mockResolvedValue({ active: 'external' });
+    render(<ComputerUseSection workingDir="/tmp/project" />);
+    expect(await screen.findByText('settings.computerUse.title')).toBeTruthy();
+    expect(screen.getByText('settings.computerUse.android.title')).toBeTruthy();
+    expect(screen.getByText('settings.computerUse.browser.checking')).toBeTruthy();
+    expect(screen.queryByText('settings.computerUse.browser.notDetected')).toBeNull();
+    expect(screen.queryByText('settings.computerUse.browser.download')).toBeNull();
+    expect(screen.queryByText('settings.computerUse.browser.openForLogin')).toBeNull();
+    expect((screen.getByRole('radio', {
+      name: 'settings.computerUse.browserBackend.rsbWebview.title',
+    }) as HTMLButtonElement).disabled).toBe(false);
+    await act(async () => { initialBrowser.resolve({
+      detected: true, browserKind: 'chrome', executablePath: '/test/chrome',
+    }); });
+    expect(await screen.findByText('settings.computerUse.browser.openForLogin')).toBeTruthy();
+    expect(screen.queryByText('settings.computerUse.browser.checking')).toBeNull();
+  });
+
+  it('shows a browser probe error and retries without claiming Chrome is missing', async () => {
+    api.getBackendState.mockResolvedValue({ active: 'external' });
+    api.getBrowserStatus.mockRejectedValueOnce(new Error('browser status unavailable'));
+    render(<ComputerUseSection workingDir="/tmp/project" />);
+    expect(await screen.findByText('settings.computerUse.browser.statusFailed')).toBeTruthy();
+    expect(screen.getByText('settings.computerUse.android.title')).toBeTruthy();
+    expect(screen.queryByText('settings.computerUse.browser.notDetected')).toBeNull();
+    expect(screen.queryByText('settings.computerUse.browser.download')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'commonUi.retry' }));
+    expect(await screen.findByText('settings.computerUse.browser.notDetected')).toBeTruthy();
+    expect(api.getBrowserStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a loading shell while base settings are pending', async () => {
+    const config = deferred<{ effectiveEnabled: boolean }>();
+    api.getPluginState.mockImplementation((id: string) =>
+      id === 'browser' ? config.promise : Promise.resolve({ effectiveEnabled: false }));
+    render(<ComputerUseSection workingDir="/tmp/project" />);
+    expect(screen.getByText('settings.computerUse.title')).toBeTruthy();
+    expect(screen.getByText('settings.computerUse.loading')).toBeTruthy();
+    await act(async () => { config.resolve({ effectiveEnabled: true }); });
+    expect(await screen.findByText('settings.computerUse.android.title')).toBeTruthy();
+    expect(screen.queryByText('settings.computerUse.loading')).toBeNull();
+  });
+
   it('renders other settings while computer permission detection is pending', async () => {
     const initialComputer = deferred<ComputerDriverStatus>();
     api.getComputerStatus.mockReturnValueOnce(initialComputer.promise);
