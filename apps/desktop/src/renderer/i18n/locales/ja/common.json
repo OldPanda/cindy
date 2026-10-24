@@ -3221,6 +3221,7 @@
           "claudeDesc": "Claude Code は Anthropic プロトコルに従います（x-api-key で認証）。この提供元の Claude Code 用 baseURL・キー・モデルを入力します。空欄にするとこの提供元は Claude Code を提供しません。",
           "codex": "Codex",
           "codexDesc": "Codex は OpenAI Responses プロトコルを使用します。Responses ネイティブ、または Chat Completions / Anthropic Messages を Cindy でブリッジする方式を選べます。このプロバイダーの Codex 用ベース URL・キー・モデルを入力します。空欄にすると Codex では利用しません。",
+          "codexUpstream": "現在の上流プロトコル：",
           "pi": "Pi",
           "piDesc": "Pi はマルチプロトコルのハーネスです:カスタム/ローカルモデル(Ollama、vLLM、自ホストのエンドポイント)は Cindy の互換プロキシを経由せず、そのまま接続します。下で API タイプを選び、この提供元の Pi 用 base URL・キー・モデルを入力してください。空欄なら Pi は設定しません。"
         },
@@ -9102,6 +9103,7 @@
       "descriptionOn": "{{name}}がセッションの変化に応じて要約を確認し、お知らせします。",
       "movedFrom": "{{name}}からここに移しました",
       "heldBy": "現在は{{name}}が担当しています。オンにするとここに移ります。",
+      "routineScopeHint": "あなたが作成したセッションも担当します。下の標準フォローが、担当セッションの変化に対応します。",
       "heldByNobody": "未設定",
       "restoreDefault": "デフォルトに戻す（{{name}}）",
       "saveFailed": "保存できませんでした。もう一度お試しください",
@@ -9129,7 +9131,8 @@
       "conflict": "別のデバイスで設定が変更されました。保存する前に再読み込みしてください。",
       "unsupported": "これらの設定を編集するには、別のデバイスの Cindy を更新してください。",
       "discardDescription": "再読み込みすると、未保存の設定が破棄されます。",
-      "leaveDescription": "移動すると、未保存の設定が破棄されます。"
+      "leaveDescription": "移動すると、未保存の設定が破棄されます。",
+      "finishOnHost": "{{device}} で操作してください。"
     },
     "devicePicker": {
       "local": "この端末",
@@ -9279,6 +9282,7 @@
       "title": "メモリ",
       "enabled": "メモリを使う",
       "disabledHint": "オフです。メモリの読み取りも保存もしません",
+      "aboutMe": "私についての記憶",
       "search": "メモリを検索",
       "empty": "まだメモリはありません",
       "noResults": "一致するメモリはありません",
@@ -9903,6 +9907,7 @@
       "selectedHint": "この一覧では、仲間は選択した項目だけを使用できます。",
       "personalHint": "この仲間が学んだスキルです。仲間のプロフィールと共に読み込まれます。",
       "unavailableHint": "このコンピュータまたは実行環境では利用できません。接続やシステム権限を設定してください。",
+      "notOnThisComputer": "このパソコンでは利用できません",
       "configure": "設定を開く",
       "empty_toolset": "この実行環境には利用できる内蔵ツールがありません。",
       "empty_mcp": "カスタム MCP サーバーはまだ追加されていません。",
@@ -10033,7 +10038,7 @@
       "homeLabel": "メインのパソコン",
       "thisComputer": "このパソコン",
       "homeOffline": "メインのパソコン「{{device}}」がオフラインです",
-      "homeUnreachable": "メインのパソコン「{{device}}」はリモート操作を許可していません",
+      "homeControlOff": "メインのパソコン「{{device}}」はリモート操作を許可していません",
       "continueHere": "このパソコンで続ける",
       "takeOverHint": "このパソコンで続けると、{{name}} はこちらで動作し、下の会話も引き継がれます。",
       "takingOver": "このパソコンで {{name}} を準備しています…",
@@ -10050,6 +10055,7 @@
       "loadingDevices": "パソコンの一覧を読み込んでいます…",
       "devicesFailed": "パソコンの一覧を読み込めませんでした",
       "noTargets": "引き継げるパソコンがありません。別のパソコンがオンラインで、同じアカウントでログインし、「同一アカウントのデバイスによる操作を許可」をオンにしている必要があります",
+      "hereControlOff": "このパソコンは「同一アカウントのデバイスによる操作を許可」がオフのため、ここからは選べません。設定 → リモート接続 でオンにしてからもう一度お試しください",
       "resumeToMove": "{{name}} を再開してから別のパソコンに移動してください",
       "transferBusy": "{{name}} はまだ返信中です。返信が終わってから移動してください",
       "targetUnavailable": "「{{device}}」は今は使えません。オンラインでリモート操作がオンになっている必要があります",
@@ -10070,6 +10076,8 @@
       "switchFailed": "{{name}} を「{{device}}」に移せませんでした",
       "homeOutdated": "メインのパソコン「{{device}}」の Cindy が古いバージョンです。更新するか、そのパソコンで変更してください",
       "arrivingLater": "{{name}} はこのパソコンに移り、準備中です。まもなくチームメイト一覧に表示されます",
+      "arrivalPermissions": "{{name}} はこのパソコンの既定の権限で動作します。",
+      "arrivalModel": "{{name}} の保存済みモデルはこのパソコンでは使えないため、このパソコンの既定モデルを使います。",
       "busyTitle": "{{name}} はまだ返信中です",
       "busyDescription": "この返信が終わってから「{{device}}」に移すか、返信を止めてすぐに移せます。",
       "busyWait": "終わってから移す",
@@ -10780,11 +10788,12 @@
     },
     "modelSelector": {
       "displayPricing": {
+        "million": "100万",
         "free": "無料",
         "estimated": "約 {{price}}",
         "startingAt": "{{price}} から",
         "units": {
-          "token": "トークン",
+          "token": "tokens",
           "character": "文字",
           "image": "枚",
           "second": "秒",
@@ -10865,6 +10874,7 @@
         "stt": "音声認識",
         "realtime": "リアルタイム音声",
         "embedding": "埋め込み",
+        "decision": "意思決定",
         "compression": "圧縮",
         "ungrouped": "未分類",
         "other": "その他"
@@ -11141,6 +11151,9 @@
         "start": "音声入力を開始",
         "stop": "音声入力を停止",
         "releaseToStop": "音声入力中、離すと終了",
+        "holdComposer": "入力欄を長押しして音声入力",
+        "speakRelease": "話してください。離すと終了",
+        "speakPressAgain": "話してください。もう一度押すと終了",
         "releaseToSend": "離すと送信",
         "finishAndSend": "音声入力を終了して送信",
         "refining": "整えています",
@@ -11287,6 +11300,12 @@
       "alwaysAllowScopedHint": "このセッション全体に適用され、ここに挙げた範囲にのみ及びます。",
       "alwaysAllowSessionHint": "この 1 回のリクエストだけでなく、このセッション全体に適用されます。",
       "autoReviewUnavailable": "自動レビューを完了できませんでした。この操作を許可するか確認してください。",
+      "autoReviewReason": "自動承認があなたの判断を求めています：{{reason}}",
+      "titleCommand": "このコマンドの実行を許可しますか？",
+      "titleFileRead": "ファイルの読み取りを許可しますか？",
+      "titleFileWrite": "ファイルの変更を許可しますか？",
+      "titleBrowser": "このブラウザ操作を許可しますか？",
+      "titlePlugin": "プラグイン「{{plugin}}」の使用を許可しますか？",
       "ruleSeparator": "、",
       "submitting": "確認を送信中…",
       "submissionFailed": "確認結果を受信できませんでした。接続を確認し、確認画面がまだ表示されている場合はもう一度クリックしてください。",
@@ -13992,6 +14011,13 @@
     },
     "builtinTemplates": {
       "schedule": {
+        "everyMinute": "毎分",
+        "hourlyAt": "毎時 {{minutes}} 分",
+        "atTimes": "{{times}}",
+        "atHoursMinutes": "{{hours}} 時の {{minutes}} 分",
+        "monthDays": "毎月 {{days}} 日",
+        "daysOrWeekdays": "{{days}} または毎週 {{weekdays}}",
+        "inMonths": "{{months}}",
         "daily": "毎日 {{time}}",
         "weekdays": "平日 {{time}}",
         "weekly": "{{weekday}} {{time}}",
@@ -16062,6 +16088,9 @@
     "compression": "長い内容を短くまとめるために。"
   },
   "routines": {
+    "onEvent": "イベント：{{source}} · {{event}}",
+    "triggerDetails": "実行条件を表示（{{count}} 件・いずれかで実行）",
+    "noTriggers": "実行条件は未設定",
     "unsavedTitle": "未保存の変更があります",
     "unsavedDescription": "戻ると、このルーチンへの変更が破棄されます。",
     "discard": "変更を破棄",
@@ -16133,8 +16162,8 @@
     "timeoutMs": "確認のタイムアウト（ミリ秒、空欄は無制限）",
     "advancedSettings": "詳細設定",
     "builtinFollowUp": {
-      "name": "フォロー（組み込み）",
-      "hint": "セッションが止まったとき、返信待ちになったとき、エラーになったとき、使用量の上限に達したとき、完了したときに起こします。組み込みのため、一時停止と再開のみできます。"
+      "name": "担当セッションのフォロー（標準）",
+      "hint": "担当セッションの停滞、返答待ち、エラー、利用上限、完了を受けてフォローします。"
     },
     "builtinTodoCheck": {
       "name": "毎日の Todo 確認（組み込み）",
