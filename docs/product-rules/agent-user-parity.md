@@ -91,6 +91,10 @@ Worker 工具省略 working_dir 时保持继承 Lead 任务记录目录，不跟
 - 任务摘要（`get_task_digest`）：`packages/lizi-mcps/src/xdt-helper/get_task_digest.ts`（输出合同 ≤2KB）、
   `apps/desktop/src/main/mcp-integrations/taskDigest.ts` 与 `taskDigestHost.ts`（跨电脑只读，复用
   `local-db:sessions:get`、`maker:list-active`、历史消息与 PR 状态通道）。
+  本机与跨电脑均排除带隐藏触发标记的协调／续跑输入，保留最新助手回复全文供工具按预算截短；
+  长回复保留首尾片段，总预算进一步收紧时仍保留首尾，避免丢掉末尾结果或阻塞说明。
+  不用内部回报替代用户要求，也不只取助手回复最后一行。`finished` 只表示所查任务本轮结束，
+  不证明委派工作或用户目标完成；不参与输入放行判定，下一条消息仍按实时运行状态和队列派发。
 - 伙伴跟进任务：`apps/desktop/src/main/maker-ipc/botWorkbenchAccess.ts`（授权：自动跟进所有任务的伙伴
   可读取既有范围内的任务，含在线电脑；继续或接手还需行动授权，其它伙伴只读自己开的或已接手的任务）。
 - 协议与兼容见 [`../dev-rules/protocol-compatibility.md`](../dev-rules/protocol-compatibility.md)
@@ -143,3 +147,10 @@ Host 不因当前输入缺少主人标记再追加行动同意判定。只认运
 已有委托的执行权不依赖自动观察规则的开关；仅凭普通 Orca Lead 的当前 team 回报只延续原 team 范围。
 跨电脑任务互发要求双方支持
 行动回执，旧端明确提示不支持；未增加观察数据权限。实机多端验收仍待完成。
+
+2026-10-24 修订：每个独立 MCP 请求隔离启动共享传输时遗留的行动上下文，
+再按绑定的当前调用方执行原有权限判定；进程内调用沿同一隔离边界。
+普通任务获准后不继承旧调用的行动证据，也不因此强制排队。
+当前调用的委托、权限撤销和延迟交付检查继续保留；不恢复过期授权，不自动重发。
+实现见 `maker-ipc/taskActionAuthorization.ts`、`taskActionHost.ts` 与
+`mcp-integrations/codexHttpBridge.ts`；回归见各自授权及 HTTP 桥接测试。

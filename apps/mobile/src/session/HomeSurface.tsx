@@ -69,6 +69,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useAuth } from '@/auth/AuthContext';
 import { HomeTeammatesSection, useHomeTeammatesSectionContext } from './HomeTeammatesSection';
+import { HomeRosterProvider } from './HomeRosterContext';
 import { createDisclosureListCell, DisclosureGroupView, DisclosureItem, ListDisclosureScope, useDisclosurePrepare, useListDisclosureTransition } from './listDisclosureTransition';
 import { useGuardedPush } from '@/utils/useGuardedPush';
 import { useHomeMenuFadeTiming } from '@/session/homeMenuFadeTiming';
@@ -293,6 +294,7 @@ import { AutomationTimerIcon } from '@/session/AutomationTimerIcon';
 import { RenameSessionModal } from '@/session/RenameSessionModal';
 import { SessionOptionsPresenter } from '@/session/SessionOptionsExpoSheet';
 import { SwipeableSessionRow, type SessionSwipeControls } from '@/session/SwipeableSessionRow';
+import { TaskFollowMark, taskFollowerNames, useTaskFollowers } from '@/session/TaskFollowMark';
 import { createSwipeRowRegistry } from '@/session/swipeRowRegistry';
 import { useSessionListActions } from '@/session/useSessionListActions';
 import { useModalFadeLifecycle } from '@/session/useModalFadeLifecycle';
@@ -461,7 +463,9 @@ export function MobileHome(props: MobileHomeProps) {
   const { accountGeneration } = useAuth();
   return <RemoteSessionStoreSubscriptionGate enabled={screenFocused}>
     <ActiveHomeSession.Provider value={props.currentSessionId}>
-      <HomeScreenContent key={accountGeneration} {...props} />
+      <HomeRosterProvider key={accountGeneration}>
+        <HomeScreenContent {...props} />
+      </HomeRosterProvider>
     </ActiveHomeSession.Provider>
   </RemoteSessionStoreSubscriptionGate>;
 }
@@ -1314,11 +1318,11 @@ function HomeScreenContent({ active = true, width, newSessionInSystemBar = false
   const homeRoster = teammatesSectionContext.shared;
   const refreshHome = useCallback(() => {
     void loadHome({ visible: true });
-    if (embedded || !homeRoster) return;
+    if (!homeRoster) return;
     void homeRoster.roster.refresh();
     if (homeRoster.groups.supported) void homeRoster.groups.refresh();
     setTeammatesRefreshKey(key => key + 1);
-  }, [embedded, homeRoster, loadHome]);
+  }, [homeRoster, loadHome]);
   loadHomeRef.current = loadHome;
 
   // 冷启动先画缓存:上次 loadHome 成功的设备+会话快照种入 store,先把列表画出来(消除首屏强制
@@ -2972,13 +2976,14 @@ function HomeScreenContent({ active = true, width, newSessionInSystemBar = false
         }}
         sections={sections}
         ListHeaderComponent={<>
-        {embedded ? null : <HomeTeammatesSection context={teammatesSectionContext} active={active} refreshKey={teammatesRefreshKey}
+        <HomeTeammatesSection context={teammatesSectionContext} active={active} refreshKey={teammatesRefreshKey}
+          push={guardedPush}
           // Independent of the computer-connection guide: server group chats and cloud companions need no computer.
           visible={indexedSearch.activeFilterCount === 0 && statusFilter !== 'archived'}
           query={searchQuery}
           // Shared group and project blocks draw their own full-width top line.
           showFooter={sharedRows.length === 0 && !isBlockHomeRow(sections[0]?.data[0])}
-          runDisclosure={runDisclosure} prepareDisclosure={prepareListDisclosure} />}
+          runDisclosure={runDisclosure} prepareDisclosure={prepareListDisclosure} />
         {sharedRows.length > 0 ? <DisclosureItem clip style={styles.projectGroup} testID="home.sharedGroup">
           <Pressable
             accessibilityRole="button"
@@ -3960,15 +3965,18 @@ function ProjectRow({
     const start = onDragStart;
     const move = onDragMove;
     const finish = onDragEnd;
+    // Worklets serialize captured objects recursively. Capture the two scalar
+    // fields here so registering a drag never copies all project task data.
+    const { key: projectKey, sessionCount } = project;
     return Gesture.Pan()
-      .activateAfterLongPress(380)
+      .activateAfterLongPress(600)
       .activeOffsetY([-8, 8])
       .failOffsetX([-12, 12])
       .onStart((event) => {
         runOnJS(start)({
           absoluteY: event.absoluteY,
-          count: project.sessionCount,
-          key: project.key,
+          count: sessionCount,
+          key: projectKey,
           title: displayTitle,
         });
       })
@@ -4396,9 +4404,11 @@ function HomeSessionRowInner({
   const prepareDisclosure = useDisclosurePrepare();
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // 运行态走订阅而非命令式读取:行已 memo 化,父层不再逐 emit 重渲染,命令式读取会 stale。
   const latestItem = latestMobileSessionRow(item);
+  // 伙伴开的或接手的任务:标题后带第一位伙伴的头像(与桌面侧栏「在跟进」同口径)。
+  const followers = useTaskFollowers(latestItem.session);
   const sessionIsRunning = useSessionRunning(latestItem.session.id);
   // 已加载消息的预览按 session 订阅。普通流式 token 只让对应的可见行更新，首页根层、
   // sections 和其它任务行都保持原引用。
@@ -4453,11 +4463,14 @@ function HomeSessionRowInner({
   };
   const groupRowOpensPrimary = !!group && (attention || rightStatus === 'error') && !groupExpanded;
   const accessibilityTitle = sharedRole === 'owned' ? item.title + ', ' + t('sharedTask.roleHost') : item.title;
+  const followedBy = !group && followers.length
+    ? t('devices.list.a11y.followedBy', { names: taskFollowerNames(followers, i18n.language) })
+    : '';
   const accessibilityLabel = group
     ? groupRowOpensPrimary
       ? t('devices.list.a11y.openAutomationLatest', { title: accessibilityTitle })
       : t('devices.list.a11y.automationTask', { title: accessibilityTitle })
-    : t('devices.list.a11y.openConversation', { title: accessibilityTitle });
+    : t('devices.list.a11y.openConversation', { title: accessibilityTitle }) + followedBy;
   const handlePress = selectionMode && onPressSelection
     ? onPressSelection
     : group
@@ -4592,6 +4605,9 @@ function HomeSessionRowInner({
                 ) : null}
                 {showPinned ? <Pin color={colors.textTertiary} size={iconSize.md} strokeWidth={iconStroke.thin} /> : null}
               </View>
+            ) : null}
+            {!group && followers[0] ? (
+              <TaskFollowMark follower={followers[0]} testID={`home.sessionFollowMark.${item.session.id}`} />
             ) : null}
             {rightStatus === 'time' ? (
               // 任务信息(显示菜单勾选):时间 / PR / worktree / Token / 费用,按勾选顺序。

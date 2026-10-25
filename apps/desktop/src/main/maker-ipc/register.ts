@@ -9,6 +9,10 @@ import { readChannelToolScope } from '../im/shared/channelToolScope.js';
 import { verifiedOwnerRequestText, type AgentRequestReceipt } from '../../shared/forwardedRequest.js';
 import { configureBotTodoDispatch, settleBotTodoForSession } from './botTodoAccess.js';
 import { createBotTodoDispatch } from './botTodoDispatch.js';
+import {
+  scheduleBotRemoteResourceChangedForDelegation,
+  scheduleBotRemoteResourceChangedForFollowedSession,
+} from './botRemoteResourceInvalidation.js';
 import { assertBotTaskCoordination, classifySessionMessagePurpose, coordinationInput } from './botTaskCoordination.js';
 import type { BotTaskCoordination, SessionMessagePurpose } from '../../shared/botTaskCoordination.js';
 import { openSession, setSessionOpeningModelAdmission } from '../localDb/sessionOpening.js';
@@ -509,6 +513,7 @@ import {
   applyAgentSwitchToSessionRow,
   applyAgentSwitchResumeFallbackAtomically,
   broadcastSessionPatched,
+  setSessionStatusPatchedListener,
   captureSessionRecycleScope,
   clearSessionContextInDb,
   createSessionRemoteHostIdReader,
@@ -629,6 +634,7 @@ import {
 import { createBotGroupChatService, settleBotGroupLaneTerminal, type BotGroupChatService, type BotGroupChatServiceDeps, type BotGroupLaneTerminal } from './botGroupChatService.js';
 import { settleUndispatchedBotGroupTurn } from './botGroupRuntimeFailure.js';
 import { withChatServer } from './chatServer.js';
+import { showDesktopChatMessage } from '../notificationService.js';
 import { companionHomes, isCompanionShadowed } from '../companion-cloud/homes.js';
 import { createCompanionCloudHost } from '../companion-cloud/host.js';
 import { activeCompanionCloud } from '../companion-cloud/runtime.js';
@@ -4761,6 +4767,10 @@ export async function ensureGoalInputReady(sessionId: string): Promise<boolean> 
 
 export function isSessionInTurn(sessionId: string): boolean {
   return sessionTurnActivityTracker.isSessionInTurn(sessionId);
+}
+
+export function getSessionLastUserActionAt(sessionId: string): number | null {
+  return agentInputCoordinatorHolder?.getLastUserActionAt(sessionId) ?? null;
 }
 
 /** Runtime-only attribution; queued or rejected steering cannot take ownership. */
@@ -13114,6 +13124,7 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
         return result.ok ? { ok: true as const } : { ok: false as const, errorCode: result.errorCode };
       },
     }),
+    onChatMessageNotification: (event, current) => { void showDesktopChatMessage(event, current).catch(() => log.warn('Chat notification unavailable')); },
     onStepSettled: (event, scope) => {
       const ownerScope = scope as ReturnType<typeof captureDataOwnerBroadcastScope> | undefined;
       if (ownerScope && !isDataOwnerBroadcastScopeCurrent(ownerScope)) return;
@@ -13147,6 +13158,8 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
   // Phones reach groups through the Remote Resource protocol (bot-group-chat.md §8).
   registerBotGroupRemoteResourceProvider(() => botGroupChatServiceHolder);
   botDelegationServiceHolder?.dispose();
+  // Archive / restore changes the open tasks a teammate's roster row links as followed.
+  setSessionStatusPatchedListener(scheduleBotRemoteResourceChangedForFollowedSession);
   botDelegationServiceHolder = createBotDelegationService({
     captureRequest: captureSessionAgentRequest,
     readSessionExecution: id => {
@@ -13256,6 +13269,7 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
     broadcastSessionCreated,
     onChanged: (payload) => {
       broadcastToAllWindows(MAKER_PUSH.BOT_DELEGATION_CHANGED, payload);
+      scheduleBotRemoteResourceChangedForDelegation(payload.delegationId, payload.childSessionId);
     },
     resolveInteraction: resolvePendingInteraction,
     hasPendingInput: (sessionId) =>

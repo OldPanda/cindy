@@ -61,6 +61,9 @@ vi.mock('mermaid', () => ({ default: {
   render: vi.fn().mockResolvedValue({ svg: '<svg width="3000" height="2000" viewBox="0 0 3000 2000"><path d="M0 0L20 20" style="fill:none;stroke:purple"/><text>diagram label</text></svg>' }),
 } }));
 vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+// The upstream inline player observes visibility; jsdom has no layout observer.
+// Keep the real player and copy handler, isolating only the browser layout API.
+vi.stubGlobal('IntersectionObserver', class { observe() {} unobserve() {} disconnect() {} });
 
 vi.mock('../useCopyAsImage', () => ({
   useCopyAsImage: () => ({ copiedImage: false, copyAsImage: vi.fn(), canAnnotate: true, openAnnotate: vi.fn(), annotateNode: null }),
