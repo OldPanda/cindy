@@ -11,7 +11,6 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { Bell, BellRing, Check, CornerDownRight, MessageSquareShare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '@/lib/toast';
-import { useMessageEntrance } from '@/components/chat/useMessageEntrance';
 import { cn } from '@/lib/utils';
 import { findThreadMessageElement, flashThreadTarget } from './BotGroupThreadViews';
 import { Button } from '@/components/ui/button';
@@ -335,9 +334,6 @@ export function ChatThreadPanel({ group, rootId, quoteSources = group.messages, 
     [realReplies, pendingSends, pendingMatches],
   );
   const rootRows = useMemo(() => projectBotGroupExecutionFailures(root ? [root] : [], executionFailures), [root, executionFailures]);
-  const entranceSignature = replyRows.map(message => adoptedKeysRef.current.get(message.id) ?? message.id).join('\0');
-  const entranceKeys = useMemo(() => entranceSignature ? entranceSignature.split('\0') : [], [entranceSignature]);
-  const enterMessage = useMessageEntrance(entranceKeys, root !== null);
   const layout = useMemo(() => layoutBotGroupTimeline(replyRows), [replyRows]);
   const lastRealSequenceRef = useRef(0);
   lastRealSequenceRef.current = realReplies[realReplies.length - 1]?.sequence ?? 0;
@@ -462,7 +458,6 @@ export function ChatThreadPanel({ group, rootId, quoteSources = group.messages, 
     return (
       <BotGroupTimelineItem
         message={message}
-        entranceRef={node => enterMessage(node, adoptedKeysRef.current.get(message.id) ?? message.id)}
         continued={continued}
         authorName={authorName}
         avatar={{ name: authorName, avatar: member?.avatar ?? null, avatarUrl: member?.avatarUrl, avatarColor: member?.avatarColor ?? null }}
