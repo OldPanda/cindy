@@ -623,7 +623,7 @@ Icon refinement reference (2026-10-18, macOS AppKit rendering; enlarged and actu
 - The usage page (owner-approved redesign, 2026-10-12) shares the panel width and slides in like a detail page instead of widening into a dashboard. Top to bottom it shows: back, title and a 7/30/90-day switch; one total with two caption lines (period, scope and value basis; daily average, paid and tokens); a 100pt stacked chart labeled only with its first day and Today, where hovering a day swaps the total for that day's amount and harness split; a thin harness bar with share and amount per harness; the top five models or today's tasks; and the value note. There is no amount/tokens switch and no scope switch: the scope follows Settings, and the caption names it.
 - Every row must fit in the longest supported language. A segmented control is used only where all its labels fit on one row in every language. The four menu bar text options are a two-column chip grid. Other controls fall back instead of overflowing: the usage-scope picker moves under its title. Screenshots for review cover English, Simplified and Traditional Chinese, Japanese and Korean, in Light and Dark.
 - Keep the main panel's original order: model quota first, tasks second, then the usage chart (owner correction, 2026-10-26). The task section uses three quiet text tabs: Unread, In progress and Today's usage. These are deliberately frameless, with no filled segment track; ink emphasis and a short underline identify selection. Each keeps a 28pt hit height and native keyboard/selected accessibility. Opening with attention selects Unread; otherwise it restores the last manually selected non-unread tab for this helper lifetime. Before any manual choice, prefer In progress when work exists, otherwise Today's usage. Updates never switch an already-open panel, including when the last unread item clears. Opening or switching tabs never acknowledges messages.
-- Unread and In progress reuse the island's full candidate projection before current-card clipping, including remote tasks and restored companion chats. Unread counts the exact attention candidates; In progress includes running and waiting-for-input tasks. Waiting items come first, then newest activity. Rows show identity, message/status preview and time; privacy mode masks both identity and preview. Clicking uses the island's existing device-aware navigation and read acknowledgement. Two rows on short screens, otherwise three, with an in-place All tasks / Collapse action; usage keeps its existing money ranking and usage-page link.
+- Unread and In progress reuse the island's full candidate projection before current-card clipping, including remote tasks and restored companion chats. Unread counts the exact attention candidates; In progress includes running and waiting-for-input tasks. Preserve the island's candidate order: waiting items come first in In progress, then the latest user/scheduler prompt; agent output and tool progress never reorder running rows (owner correction, 2026-10-27). Rows show identity, a single-line message/status preview with tail truncation, and time; no full-content hover tooltip (owner correction, 2026-10-27). Privacy mode masks both identity and preview. Clicking uses the island's existing device-aware navigation and read acknowledgement. Two rows on short screens, otherwise three, with an in-place All tasks / Collapse action; usage keeps its existing money ranking and usage-page link.
 
 ### Desktop chat and operation authorization (DS-9, 2026-09-11)
 
@@ -678,10 +678,13 @@ all states use semantic colors in both Light and Dark.
 Claude Code and Codex use the same row, trigger and menu (`HarnessVersionMenuRow`), with only
 the Cindy-maintained version chain: update to the current channel's version (shown right-aligned,
 disabled unless strictly newer), check again, and the last successful check time. A later failed
-online check keeps that last version in the menu but disables Update: restart re-checks the
-manifest and cannot install from a stale result. There is no upstream source, restore or
-release-notes entry. Updating keeps the existing confirm → busy warning → restart flow; the
-download happens in the normal startup Splash, not in the row.
+online check keeps that last version in the menu but disables Update. There is no upstream
+source, restore or release-notes entry. Updating first prepares the selected version in the
+shared background cache, showing download status in the row, then follows the existing
+confirm → busy warning → restart flow. Startup installs only a complete cache matching the
+current manifest; if that target has changed or the cache is unavailable, it keeps a usable
+old runtime and retries in the background. First-install and repair downloads retain their
+existing startup fallback.
 
 
 ### User-attached long images
