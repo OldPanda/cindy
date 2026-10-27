@@ -1177,7 +1177,7 @@ import {
 } from './scheduler-host/index.js';
 import { configureRoutineHost } from './routines/service.js';
 import { configureBotAutonomyHost, initBotAutonomy } from './bot-autonomy/service.js';
-import { getBotRemoteResourceSource } from './localDb/ipc/bots.js';
+import { getBotRemoteResourceSource, ensureBotRoutineLaneSession } from './localDb/ipc/bots.js';
 import {
   registerScheduleHandlers,
   attachSchedulerEventListeners,
@@ -1235,6 +1235,10 @@ async function waitForCurrentAccountProviderModelsReady(): Promise<void> {
 configureRoutineHost({
   assertImportedAutomationReady: ensureImportedAutomationReady, prepareImportedAutomation, finishImportedAutomation, recoverImports: recoverCompanionImports,
   getBot: getBotRemoteResourceSource,
+  ensureRoutineSession: ensureBotRoutineLaneSession,
+  closeRoutineSession: async (sessionId) => {
+    await getMakerIfReady()?.closeSession(sessionId);
+  },
   getScheduler: getSchedulerIfInitialized,
   getScheduleStorage,
 });
@@ -7530,7 +7534,7 @@ const registerIpcHandlers = () => {
     'fs:resolve-path',
     async (
       _event: Electron.IpcMainInvokeEvent,
-      params: { href: string; workingDir: string },
+      params: { href: string; workingDir: string; refresh?: boolean },
     ): Promise<{
       status: 'unique' | 'multiple' | 'none';
       candidates: string[];
@@ -7539,6 +7543,7 @@ const registerIpcHandlers = () => {
       try {
         return await resolveWorkspacePathCached(params.href, params.workingDir, {
           isPathAllowed,
+          refresh: params.refresh === true,
         });
       } catch (err) {
         console.error('[fs:resolve-path] failed:', err);
