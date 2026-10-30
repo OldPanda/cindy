@@ -1189,6 +1189,7 @@ import {
 import { registerStopAgentTaskHandler } from './stopAgentTaskHandler.js';
 import { registerStopSessionBackgroundTasksHandler } from './stopSessionBackgroundTasksHandler.js';
 import { registerProviderHandlers } from './providerHandlers.js';
+import { readModelImageInputOverride, writeModelImageInputOverride } from '../maker-host/model-catalog-override-store.js';
 import { createLocalCliScanDeps, scanLocalCliAuth } from './localCliDetect.js';
 import { registerMcpHandlers } from './mcpHandlers.js';
 import {
@@ -1200,6 +1201,7 @@ import {
   getDesktopSelectableCatalog,
   refreshActiveCatalogFromSource,
   refreshCustomProvidersIntoCatalog,
+  syncLocalCatalogOverridesIntoActiveCatalog,
 } from '../maker-host/createDesktopProviderService.js';
 import {
   deviceAvailableModels,
@@ -7733,6 +7735,14 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
       // Expose the actual next-start configuration, explicitly marked as pending.
       return configured && sessionId ? { ...configured, pendingApply: true } : configured;
     },
+    readModelImageInputOverride,
+    writeModelImageInputOverride: (targets, value) => writeModelImageInputOverride(targets, value, async () => {
+      syncLocalCatalogOverridesIntoActiveCatalog();
+      // Claude/Codex consume live catalog and interface metadata at dispatch.
+      // Only Pi caches input modalities in its native model registry.
+      const piTargets = targets.filter(target => target.agent === 'pi');
+      if (piTargets.length) await refreshContextSettings(piTargets);
+    }),
     readModelContextLimit: (target) => ({
       limit: readModelContextLimit(target.agent, target.providerId, target.modelId),
       isCustomized: isModelContextLimitCustomized(
@@ -13841,6 +13851,14 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
   // Bot group chat is local to this Desktop in phase 1; device-link does not route these channels.
   const botGroupNotReady = { ok: false as const, errorCode: 'HOST_NOT_READY' as const, message: '伙伴群聊服务尚未就绪' };
   // Narrow chat operations; credentials and transport stay in main.
+  ipcMain.handle(MAKER_INVOKE.CHAT_SERVER_MASK, async (event, input) => {
+    assertTrustedAppRendererEvent(event);
+    return botGroupChatServiceHolder?.chatServer?.mask?.(input) ?? { ok: false, errorCode: 'HOST_NOT_READY' };
+  });
+  ipcMain.handle(MAKER_INVOKE.CHAT_SERVER_MENTIONS, async (event, input) => {
+    assertTrustedAppRendererEvent(event);
+    return botGroupChatServiceHolder?.chatServer?.mentions?.(input) ?? { ok: false, errorCode: 'HOST_NOT_READY' };
+  });
   ipcMain.handle(MAKER_INVOKE.CHAT_SERVER_STATUS, async (event, input) => {
     assertTrustedAppRendererEvent(event);
     const chat = botGroupChatServiceHolder?.chatServer;
