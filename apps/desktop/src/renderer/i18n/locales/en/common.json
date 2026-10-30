@@ -1,5 +1,25 @@
 {
   "providerAccountUsage": {
+    "kimi": {
+      "refresh": "Refresh quota",
+      "usage": "View Kimi Code usage",
+      "error": {
+        "no-credentials": "No Kimi Code credentials are available. Connect this provider first.",
+        "auth": "Kimi Code rejected the credentials. Check the connection and retry.",
+        "rate-limited": "Kimi Code is limiting quota queries. Retry later.",
+        "network": "Cindy cannot reach Kimi Code. Check the network and retry.",
+        "server": "Kimi Code cannot return quota right now. Retry later.",
+        "invalid-response": "Kimi Code returned unreadable quota data. Retry later.",
+        "throttled": "Quota was just refreshed. Retry a bit later.",
+        "unknown": "Cindy cannot load Kimi Code quota. Retry later.",
+        "updating": "The connection changed. Refresh to retrieve its quota."
+      },
+      "limit_5h": "5 Hours",
+      "limit_7d": "Weekly",
+      "limit_month_total": "Monthly Total",
+      "limit_month_code": "Monthly Coding",
+      "stale": "Showing the last available quota. The latest update failed."
+    },
     "openDashboard": "Open DeepSeek usage dashboard",
     "deepSeek": {
       "balanceLine": "Balance {{total}} (topped up {{toppedUp}} / granted {{granted}})",
@@ -905,7 +925,10 @@
     }
   },
   "regionScreenshot": {
-    "editor": { "fitWidth": "Fit width", "loading": "Loading image…" },
+    "editor": {
+      "fitWidth": "Fit width",
+      "loading": "Loading image…"
+    },
     "moveToolbar": "Move toolbar left or right",
     "hint": "Click to select a window or element, or drag to select an area · Scroll to change scope · Space: full screen · C: copy color · Esc: exit",
     "hintWithLast": "Click to select a window or element, or drag to select an area · Scroll to change scope · Space: full screen · R: last area · C: copy color · Esc: exit",
@@ -1035,7 +1058,7 @@
   },
   "privacyExit": {
     "status": "This computer is being remotely controlled through Cindy",
-    "hint": "Click or press any key to disconnect…",
+    "hint": "To show this screen, turn off Computer privacy screen under Security on the device controlling it. Or click or press any key on this computer, then choose Disconnect.",
     "title": "Disconnect remote desktop?",
     "detail": "This will end remote control and restore this computer’s screen. The computer will lock if lock on exit is enabled.",
     "cancel": "Keep connected",
@@ -1411,6 +1434,8 @@
       "minutes": "{{m}}m"
     },
     "window": {
+      "kimiMonthTotal": "Monthly Total",
+      "kimiMonthCode": "Monthly Coding",
       "session": "{{hours}}-hour",
       "week": "Weekly",
       "scoped": "{{model}} weekly"
@@ -3320,8 +3345,12 @@
         "modelsPending": "{{name}} is configured, but models could not be fetched. Retry in provider settings.",
         "busyWarning": "This change requires reloading the local Codex service and may interrupt {{count}} running sessions. Continue?",
         "close": "Close provider import",
-        "loadFailed": "This provider import link is invalid or has expired.",
-        "confirmFailed": "The provider could not be imported. Check the link or endpoint and try again.",
+        "fromFile": "Import from file",
+        "fileTooLarge": "The file exceeds 4 MiB. Reduce its size and try again.",
+        "fileInvalid": "This file is not a valid provider import configuration. Check the JSON format and configuration fields.",
+        "fileReadFailed": "The file could not be imported. Select it again and retry.",
+        "loadFailed": "This provider import is no longer valid. Open the link or select the file again.",
+        "confirmFailed": "The provider could not be imported. Check the configuration or endpoint and try again.",
         "oauthFailed": "The provider was added, but authorization did not finish. Try authorization again.",
         "done": "{{name}} was imported",
         "oauthDone": "{{name}} was added and authorized",
@@ -3345,6 +3374,47 @@
           "create": "A new local provider will be created as {{name}}.",
           "update": "The existing provider {{name}} will be updated.",
           "replace-key": "The locally stored API Key for {{name}} will be replaced."
+        },
+        "fileGuideDescription": "Cindy-format UTF-8 JSON files, up to 4 MiB.",
+        "fileGuideSteps": "Use the example to fill in the provider name, endpoint URL, API key and model details.",
+        "fileGuidePrivacy": "The example contains no real key. Keep files with your key private.",
+        "selectJsonFile": "Choose JSON file",
+        "downloadExample": "Download example",
+        "showFormat": "View format guide",
+        "hideFormat": "Collapse format guide",
+        "formatStructure": "The file contains one JSON object, without Base64, an import link or an extra wrapper. The fields below describe a custom API Key provider. Field names are case-sensitive; JSON does not allow comments.",
+        "formatIdentity": "Required. Set kind to \"custom\" and name to the provider name you want to display.",
+        "formatAuth": "Required. In this example, set method to \"apiKey\" and replace apiKey with the key from your provider.",
+        "formatEndpoint": "Required for each endpoint. protocol accepts \"openai-chat\", \"openai-responses\", \"anthropic-messages\" and \"google-generative-ai\". Set baseUrl to the full HTTP(S) endpoint URL; HTTPS is recommended.",
+        "formatTargets": "Optional engine array: \"claude-code\", \"codex\" or \"pi\". Omit it to match engines by protocol, or specify engines explicitly. Claude Code also supports OpenAI and Google protocols. The example enables only Pi.",
+        "formatModels": "Optional. Use model ID strings or objects with id (name is optional). Omit the list or leave it empty to fetch models after confirmation. A nonempty list skips automatic fetching.",
+        "formatMetadata": "Optional model fields: group is the model group, contextWindow is the context length, and maxOutputTokens is the output limit (both in tokens). Example numbers are illustrative; use the model’s actual capabilities.",
+        "formatEffort": "Optional model fields: efforts lists supported effort levels; defaultEffort selects one of them as the default. Remove both fields if unsure.",
+        "formatLimits": "Up to 8 endpoints per provider and 10,000 models per endpoint, within the 4 MiB file limit.",
+        "exampleTitle": "JSON example (same as the download)",
+        "fileGuidePrepare": "Prepare Your File",
+        "fileGuideReview": "Preview and Confirm",
+        "fileGuideReviewHint": "Import one or more providers. Review the file first; nothing is saved until you confirm.",
+        "formatConversion": "Convert exports from other clients to this format first.",
+        "downloadBatchExample": "Download Batch Example",
+        "formatBatch": "For a batch, use { \"providers\": [config1, config2] } with the single-provider structure below for each entry. Maximum 50 entries and 4 MiB total. Built-in key slots and explicit ids must not repeat. If any entry has an invalid structure, no import drafts are created for the file.",
+        "batchTitle": "Import Providers ({{count}})",
+        "batchNote": "Select providers to import together. Review individually to update an existing connection or authorize. Saved entries are kept if another entry fails.",
+        "batchImport": "Import Selected ({{count}})",
+        "batchProgress": "{{count}} of {{total}} added or updated",
+        "batchItem": "Configuration {{index}}",
+        "batchReviewOne": "Review Individually",
+        "batchStatus": {
+          "loading": "Loading preview…",
+          "ready": "Ready to import",
+          "saving": "Importing…",
+          "saved": "Imported",
+          "modelsPending": "Imported; retry model discovery in provider settings",
+          "failed": "Import failed; retry or review individually",
+          "manual": "Individual confirmation or authorization required",
+          "invalid": "Preview unavailable; check the configuration or select the file again",
+          "skipped": "Skipped; select the file again to import this entry",
+          "authorizationPending": "Connection added; complete authorization in provider settings"
         }
       },
       "order": {
@@ -5263,7 +5333,7 @@
         "title": "Use my browser logins",
         "description": "The agent will open sites with your signed-in Chrome, Edge, or Brave accounts.",
         "toggleAria": "Use my browser logins",
-        "unavailableEmbedded": "Only available with the standalone external browser. The sidebar browser cannot load Chrome’s login files.",
+        "unavailableEmbedded": "Only applies to the standalone browser. Switching it off deletes the copied login files.",
         "confirmTitle": "Let the agent use your browser logins?",
         "confirmDescription": "The agent will be able to open sites with your signed-in accounts, including email, cloud drives, and work consoles. You can turn it off anytime; the copy will be deleted.",
         "confirmDescriptionMac": "The agent will be able to open sites with your signed-in accounts, including email, cloud drives, and work consoles. Reading Chrome’s login files also needs Full Disk Access. You can turn this off anytime; the copy will be deleted.",
@@ -5280,33 +5350,54 @@
       },
       "browserBackend": {
         "title": "Automation browser target",
-        "description": "Pick which browser the agent actually drives during automation. Login state is independent between the two modes.",
         "defaultTag": "Default",
         "resetToDefault": "Reset to default",
         "toggleFailed": "Failed to switch browser target",
         "health": {
-          "ready": "Embedded browser control is connected.",
-          "error": "Embedded browser connection failed: {{reason}}. Choose “Recover Browser” to rebuild the control connection.",
+          "ready": "Sidebar browser control is connected.",
+          "error": "Sidebar browser connection failed: {{reason}}. Choose “Recover Browser” to rebuild the control connection.",
           "reasons": {
             "disposing": "the previous shutdown has not completed",
-            "hostUnavailable": "the embedded browser interface is not ready or its connection was lost",
+            "hostUnavailable": "the sidebar browser interface is not ready or its connection was lost",
             "startFailed": "the replacement controller could not start",
             "statusFailed": "the controller status check failed",
-            "recoveryFailed": "the control connection could not be rebuilt"
+            "recoveryFailed": "the control connection could not be rebuilt",
+            "extensionDisconnected": "no browser extension is connected (install and enable the Cindy Chrome plugin and its extension)",
+            "pluginMissing": "the Cindy Chrome plugin is not installed or enabled"
           },
           "reconnect": "Reconnect Browser",
           "recover": "Recover Browser",
           "recovering": "Recovering Browser…",
-          "recovered": "Embedded browser reconnected",
-          "recoverFailed": "Failed to recover the embedded browser. Review the reason and try again."
+          "recovered": "Sidebar browser reconnected",
+          "recoverFailed": "Failed to recover the sidebar browser. Review the reason and try again.",
+          "userBrowserReady": "Your browser is connected: the agent can operate the browser you are using.",
+          "userBrowserError": "Your browser is unavailable: {{reason}}."
         },
         "rsbWebview": {
-          "title": "Sidebar embedded browser",
-          "description": "Agent operates inside the right-sidebar webview tabs. No popup window; sign-ins are kept separately."
+          "title": "Sidebar browser",
+          "description": "Opens pages in Cindy’s right sidebar so you can watch what the agent does. Sign-ins are kept separately."
         },
         "external": {
-          "title": "Standalone external browser",
-          "description": "Agent drives a dedicated Chrome window (vendored Playwright)."
+          "title": "Standalone browser",
+          "description": "A Chrome window just for Cindy, apart from the Chrome you use every day. Sign-ins are kept separately."
+        },
+        "userBrowser": {
+          "title": "My browser",
+          "description": "Works in the Chrome or Edge you are using, with your existing sign-ins. New pages open in a background window and stay out of your way."
+        },
+        "userBrowserSetup": {
+          "installPluginTitle": "Install the Cindy Chrome plugin",
+          "enablePluginTitle": "Enable the Cindy Chrome plugin",
+          "installExtensionTitle": "Add the Cindy extension to your browser",
+          "pluginBody": "My browser reaches your Chrome or Edge through the Cindy Chrome plugin and its browser extension. Install the plugin in Cindy first, then follow its prompt to add the extension.",
+          "extensionBody": "Add browser extension opens the Cindy extension’s store page in your browser; choose Add and this changes to connected on its own. Already added? Enable it in the browser’s extension settings.",
+          "installPlugin": "Install plugin",
+          "enablePlugin": "Enable",
+          "installExtension": "Add browser extension",
+          "updatePluginTitle": "Update the Cindy Chrome plugin",
+          "updatePluginBody": "The installed Cindy Chrome plugin is too old for My browser. Update it to the latest version, then follow its prompt to add the extension.",
+          "updatePlugin": "Update",
+          "storeOpened": "Opened the Cindy extension page in your browser. Choose Add to Chrome and it connects on its own."
         }
       },
       "android": {
@@ -7380,9 +7471,11 @@
         "agentBackgroundDetail": "Does not require a click each time, but can only use sessions you previously connected to this plugin. Model charges may apply.",
         "agentTasksRequest": "Review task permission",
         "agentTasks": "Can create and manage its own Cindy tasks",
-        "agentTasksDetail": "Can send messages, read results and stop its own executions. Tasks remain visible to you. Uses this plugin’s AI settings and may incur model charges; does not grant access to other tasks.",
+        "agentTasksDetail": "The plugin can message, read results from, and stop its own tasks. Tasks remain visible to you, use the plugin’s AI settings, and may incur model charges. Agents in those tasks can use connected tools, including access to other tasks and account data, subject to task permissions and account ownership.",
+        "agentDelegation": "Can delegate scoped tasks to companions",
+        "agentDelegationDetail": "Companions may perform the delegated task under Auto review. Does not impersonate the owner or change companion permissions.",
         "agentTargets": "Can send messages to projects, existing tasks and companions",
-        "agentTargetsDetail": "Can view local project directories and task and companion names and IDs, create tasks in projects, and send text and images to existing tasks and companions. May trigger AI execution and model charges; does not grant access to other tasks’ history, settings or stop controls.",
+        "agentTargetsDetail": "Can view local project directories and task and companion names and IDs, create tasks in projects, and send text and images to existing tasks and companions. May trigger AI execution and model charges. This delivery API itself cannot read other tasks’ history, change their settings, or stop them.",
         "agentHiddenTasks": "Can create background tasks hidden from the task list",
         "agentHiddenTasksDetail": "Tasks this plugin creates can stay out of the task list, search and notifications. You can always view, open or show them in the task list from Background Tasks on this plugin’s page; uninstalling the plugin shows them again.",
         "agentErrand": "Create tasks, perform work, and read results",
@@ -7458,6 +7551,9 @@
         "sessionContextDetail": "Shares only location facts (session ID and project folder path) while it works for the current session — no file contents, and no file access is granted.",
         "preview": "Can open preview pages from the sites below in the sidebar browser",
         "previewDetail": "Only the sites listed below can be opened; every page it opens is attributed to this plugin.",
+        "browserExtension": "Lets its bundled browser extension connect to Cindy",
+        "browserExtensionDetail": "Only the extensions listed below can connect, over the local loopback address; Cindy hands requests the extension makes to this plugin.",
+        "browserExtensionPageControlDetail": "Only the extensions listed below can connect. The extension also implements page control: with “My browser” selected, the agent can read and operate pages in the browser you are using.",
         "nodeChildSpawn": "Its Node program can ask the host to start declared sub-processes from its package",
         "nodeChildSpawnDetail": "Only JS files declared inside its own package can be started (same local permissions as the main program); arbitrary commands cannot be executed. Sub-processes are closed together when the plugin is disabled or exits.",
         "skill": "Adds the skill \"{{name}}\" to your AI assistants",
@@ -8021,7 +8117,6 @@
         "versionContent": "Version content",
         "loadMoreVersions": "Load more versions",
         "notSubmitted": "Not submitted for review",
-        "submitVersion": "Submit {{version}} for review",
         "publishingVersion": "Version for Review · {{version}}",
         "refreshSummary": "Refresh publishing summary",
         "versionConsumedHint": "Once a submission is accepted for review, its version number cannot be reused, even after cancellation or rejection.",
@@ -11648,6 +11743,7 @@
         "cancelled": "Cancelled"
       },
       "timeout": "Setup timed out",
+      "cancelled": "Plugin setup was cancelled; this call was not run.",
       "oauthCancelled": "Authorization was cancelled",
       "oauthFailed": "Authorization failed: {{detail}}",
       "pluginUninstalledDuringOauth": "The target plugin was uninstalled or is unavailable",
@@ -12730,6 +12826,7 @@
       "piTransportClosed": "Remote Pi connection interrupted (SSH channel closed). The remote task is still running — reconnect to continue.",
       "piManagerUnavailable": "Remote Pi manager is not ready. Retry shortly; if it keeps failing, reinstall Pi under Settings → Remote Machines.",
       "piBundledNodeMissing": "The remote host is missing its runtime (Node.js). Expand the host under Settings → Remote Machines and click Install on Claude Code or Codex first (they bundle Node.js), then start a Pi task.",
+      "remoteCompactEncryptedContent": "Context compaction failed because the model could not read encrypted history. Automatic continuation did not complete. Retry to attempt recovery.",
       "contextOverflow": "This message itself exceeds the model's context window, so Cindy cannot continue it in a fresh agent session. Shorten the input or remove a large attachment, then try again.",
       "attachmentAccessDeniedTitle": "Cindy cannot read the source attachment; the message was not sent.",
       "attachmentAccessDeniedRecovery": "Save a copy to Downloads or another accessible folder, remove the original attachment, and add the copy using the attachment button before sending again."
@@ -13797,6 +13894,20 @@
       }
     },
     "draft": {
+      "directoryRecovery": {
+        "required": "Some linked folders need authorization. Reselect all {{count}} linked folders",
+        "changed": "A linked folder has changed. Check the folders, then reselect all {{count}} linked folders",
+        "unavailable": "A linked folder is unavailable. Check the folder or system permissions, or return to editing and remove it",
+        "selecting": "Reselecting folder {{index}}/{{count}}: {{directory}}",
+        "cancelled": "Folder selection cancelled. Your prompt and linked folders are preserved",
+        "mismatch": "The selected folder differs from the original. Your folder list is unchanged",
+        "failed": "Could not complete folder selection. Your prompt and linked folders are preserved",
+        "ready": "Folders reselected. Send the task again",
+        "readyGoal": "Folders reselected. Create the goal again",
+        "reselect": "Reselect Folders",
+        "cancel": "Cancel Folder Selection",
+        "edit": "Return to Editing"
+      },
       "createSessionFailed": "Failed to create session, please retry",
       "piRemoteUnsupported": "Pi runs locally only and can't use SSH remote hosts. Switch to Claude or Codex to use this host.",
       "localWorktreeCleanupPending": "The previous local worktree session is still awaiting cleanup. Try again after cleanup finishes.",
@@ -18405,10 +18516,5 @@
     "groupHint": "When off, all tasks routed through this group use standard speed, including Ultrafast.",
     "pending": "Some computers have not confirmed the setting. Keep them connected and update group computers that do not support this setting.",
     "saveFailed": "The setting may be saved, but some running tasks have not confirmed standard speed. Check the connection and retry."
-  },
-  "attachmentAccessConfirmation": {
-    "title": "Confirm Attachment Access",
-    "message": "Cindy cannot read this attachment. Select the original file to continue sending this message. Cancelling keeps your draft.",
-    "button": "Use Original File"
   }
 }

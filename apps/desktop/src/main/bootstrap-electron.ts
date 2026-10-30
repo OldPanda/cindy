@@ -761,7 +761,9 @@ import {
   setMainWindowAccessorForBackend,
   setEnsureHostForBackend,
   setIsDetachedForBackend,
+  setUserBrowserPageControlProvider,
 } from './mcp-integrations/browser.js';
+import { setPageControlGhostProvider } from './mcp-integrations/ghost.js';
 import { RsbWindowController } from './right-sidebar-window/controller.js';
 import { resolveRsbHostContextFromSession } from './right-sidebar-window/resolveHostContext.js';
 import { createRightSidebarWindow } from './right-sidebar-window/window.js';
@@ -1151,6 +1153,7 @@ import {
   setGhostNodeRuntimeStartAttemptContextReader,
   suspendAllGhosts,
   waitForGhostMutations,
+  getGhostBrowserExtensionSlot,
 } from './cindy-brain/index.js';
 import { setCodexImageAuthBinding } from './cindy-brain/codexImageAuthBinding.js';
 import { configureMailAttachmentHost } from './cindy-brain/mailAttachmentUpload.js';
@@ -1249,6 +1252,10 @@ configureRoutineHost({
   ensureRoutineSession: ensureBotRoutineLaneSession,
   closeRoutineSession: async (sessionId) => {
     await getMakerIfReady()?.closeSession(sessionId);
+  },
+  // fresh 任务未被派发即回收：复用普通任务同一条删除写入（不另起并行写链）。
+  deleteRoutineSession: async (sessionId) => {
+    await patchSessionMetaInDb(sessionId, { status: 'deleted' });
   },
   getScheduler: getSchedulerIfInitialized,
   getScheduleStorage,
@@ -2505,6 +2512,11 @@ setMainWindowAccessorForBackend((op) => {
 });
 setEnsureHostForBackend((sessionId) => rsbWindowController.ensureOpenForAutomation({ sessionId }));
 setIsDetachedForBackend(() => readRsbWindowSettings().detached);
+// 「我的浏览器」后端经 browserExtension 插件槽拿页面控制桥接;槽归 cindy-brain,
+// 这里倒置依赖,browser.ts 不反向 import 插件基座。
+setUserBrowserPageControlProvider(() => getGhostBrowserExtensionSlot().getPageControl());
+// The plugin providing "My browser" hides its own page tools from agents: one way to drive the user's browser.
+setPageControlGhostProvider(() => getGhostBrowserExtensionSlot().getPageControl()?.instanceId ?? null);
 setBrowserSessionUploadRootResolver(async (sessionId) => {
   try {
     const meta = await getMakerCore().getSessionMeta(sessionId);
@@ -10075,11 +10087,18 @@ onQuit(
   },
   'sync',
 );
+let schedulerQuit: Promise<void> | undefined;
 onQuit(
   'session-active-turn-freeze',
   () => {
     suspendUsageLimitWaits();
     freezeSessionActiveTurnMarkers();
+    // Fence scheduler completion before process reapers / Maker close emit
+    // terminal events. Keep the write alive until the async quit phase drains.
+    schedulerQuit = getSchedulerIfInitialized()?.stop({ interrupted: true });
+    void schedulerQuit?.catch((error) => {
+      createSchedulerLogger('scheduler-host').error?.('scheduler quit persistence failed', error);
+    });
   },
   'sync',
 );
@@ -10256,6 +10275,7 @@ onQuit(
 onQuit(
   'shutdown-maker',
   async () => {
+    await schedulerQuit?.catch(() => {});
     // Not try/finally: a rejection here can predate `maker.shutdown` entirely
     // (see `makerShutdownSettled`), so it must not read as "the parent is down".
     const { piSessionFailures } = await shutdownMaker();
