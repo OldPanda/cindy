@@ -7594,6 +7594,16 @@
         "unknownPublisher": "Éditeur inconnu",
         "unknownReviewerDetail": "Le paquet affirme avoir passé une revue, mais cette version de Cindy ne reconnaît pas la clé du relecteur : il n'est donc pas affiché comme ayant passé la revue."
       },
+      "controlPoints": {
+        "title": "Vérifications avant exécution",
+        "description": "Ce plugin peut vérifier les automatisations ou routines avant leur exécution. Il peut ignorer ou arrêter une exécution, jamais l’approuver à ta place.",
+        "usage": "Pour l’utiliser, choisis-le dans Vérification préalable en modifiant une automatisation ou une routine.",
+        "points": {
+          "will-schedule-run": "Avant l’exécution d’une automatisation",
+          "will-routine-run": "Avant l’exécution d’une routine d’un coéquipier"
+        },
+        "inactive": "Pas encore disponible. Autorise-le lors de la mise à jour ou de la réinstallation de ce plugin."
+      },
       "perm": {
         "mail": "Utiliser les brouillons d'e-mail et les cartes d'envoi",
         "mailDetail": "Modifier et synchroniser des brouillons dans une carte, avec confirmation et compte à rebours d'annulation avant l'envoi.",
@@ -7663,6 +7673,10 @@
         "subscribeHooksDetail": "Vérifie chaque message avant l'envoi : il peut le bloquer ou en réécrire le texte avant qu'il parte ; les messages bloqués peuvent être modifiés et renvoyés.",
         "subscribeAssistantReply": "Peut lire et réécrire les réponses de l'IA",
         "subscribeAssistantReplyDetail": "Traite chaque réponse de l'IA une fois terminée : il peut en peaufiner ou réécrire le texte (en le remplaçant directement, sans conserver l'original), ou remplacer la bulle de réponse par sa propre carte (dans ce cas, le texte original est conservé et consultable d'un simple toucher).",
+        "subscribeScheduleRun": "Peut vérifier les automatisations choisies avant leur exécution",
+        "subscribeScheduleRunDetail": "Les automatisations pour lesquelles tu le choisis dans Vérification préalable le consultent d’abord. Il voit leur nom et leurs instructions et peut ignorer ou arrêter cette exécution, sans rien approuver à ta place.",
+        "subscribeRoutineRun": "Peut vérifier les routines choisies avant leur exécution",
+        "subscribeRoutineRunDetail": "Les routines pour lesquelles tu le choisis dans Vérification préalable le consultent d’abord. Il voit leurs instructions et les événements déclencheurs et peut ignorer ou arrêter cette exécution, sans rien approuver à ta place.",
         "card": "Affiche des cartes de message",
         "cardExternalLink": "Les cartes peuvent déclarer des liens externes qui ouvrent votre navigateur après confirmation",
         "cardExternalLinkDetail": "Cliquer sur un lien de carte affiche une boîte de dialogue de confirmation ; l'URL ne s'ouvre dans le navigateur du système qu'après votre approbation. Seules les adresses http/https sont autorisées.",
@@ -15449,6 +15463,25 @@
         },
         "browse": "Choisir un fichier de script (ou le faire glisser sur le champ)"
       },
+      "preRunPlugin": {
+        "sourceLabel": "Vérifier avec",
+        "source": {
+          "script": "Script",
+          "plugin": "Plugin"
+        },
+        "tooltip": "Avant chaque exécution, Cindy consulte le plugin choisi. Il peut laisser l’exécution se faire, ignorer celle-ci ou l’arrêter. Il ne peut jamais approuver à ta place ce qui demande ta confirmation.",
+        "choose": "Choisir un plugin",
+        "unavailable": "Plugin indisponible",
+        "unavailableHint": "Ce plugin n’est plus disponible. Tant que tu n’en choisis pas un autre, le réglage « Si le plugin échoue » s’applique.",
+        "hint": "Le plugin peut laisser l’exécution se faire, ignorer celle-ci ou l’arrêter. Il ne peut jamais approuver à ta place.",
+        "empty": "Aucun plugin ne peut encore vérifier les exécutions. Installe un plugin compatible avec les vérifications préalables et autorise-le lors de l’installation ou de la mise à jour.",
+        "onFailureLabel": "Si le plugin échoue",
+        "onFailure": {
+          "allow": "Exécuter normalement",
+          "skip": "Ignorer cette exécution",
+          "block": "Arrêter et marquer comme échouée"
+        }
+      },
       "validation": {
         "nameRequired": "Le nom est obligatoire",
         "promptRequired": "Le prompt est obligatoire",
@@ -15461,6 +15494,7 @@
         "modelUnavailable": "Le modèle {{model}} n'est plus disponible. Sélectionnez un autre modèle.",
         "reasoningInvalid": "Le raisonnement doit être l'une des valeurs suivantes : {{values}}",
         "preRunHookCommandRequired": "Saisissez la commande de vérification préalable",
+        "preRunPluginRequired": "Choisis un plugin pour la vérification préalable",
         "templateParamRequired": "Saisissez {{label}}",
         "templateApplyFailed": "Impossible d'appliquer le modèle. Vérifiez les paramètres et réessayez."
       }
@@ -17787,6 +17821,7 @@
     "sessionModeFresh": "Nouvelle session à chaque déclenchement (isoler le contexte)",
     "sessionModeHint": "Le mode persistant conserve une seule conversation pour la routine. Le mode nouvelle session crée puis ferme une conversation isolée à chaque déclenchement.",
     "quietHint": "Signaler uniquement les changements ou les problèmes. Désactivez pour les rappels et les messages planifiés.",
+    "checkSource": "Vérifier avec",
     "checkCommand": "Commande de vérification préalable",
     "checkHint": "Facultatif. Vérifie sur l'ordinateur avant chaque exécution : le code de sortie 2 ignore l'exécution, 0 la poursuit, les erreurs restent visibles. Videz le champ pour la retirer.",
     "timeoutMs": "Délai de vérification (ms, vide pour aucune limite)",

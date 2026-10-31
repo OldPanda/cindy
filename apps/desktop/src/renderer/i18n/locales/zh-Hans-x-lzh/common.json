@@ -7607,7 +7607,11 @@
         "mcpUi": "可于言谈中示交互页面",
         "mcpUiDomains": "页面可连之网域：{{domains}}",
         "mcpAppOnly": "唯页面可用",
-        "uiPageAccess": "页面：{{pages}}；网域：{{domains}}；页面可召之工具：{{tools}}"
+        "uiPageAccess": "页面：{{pages}}；网域：{{domains}}；页面可召之工具：{{tools}}",
+        "subscribeRoutineRun": "可于君所择之同僚例行差事运行前行检",
+        "subscribeRoutineRunDetail": "凡于「预检」择之之例行差事，每番触发必先询之。其可见差事之指令与触发事件之内容，可令此番略过或止之，不能代君准允。",
+        "subscribeScheduleRun": "可于君所择之自动化运行前行检",
+        "subscribeScheduleRunDetail": "凡于「预检」择之之自动化，运行前必先询之。其可见此自动化之名与指令，可令此番略过或止之，不能代君准允。"
       },
       "connections": {
         "confirmTitle": "增连接地址",
@@ -8190,6 +8194,16 @@
         "importing": "方纳卷",
         "finished": "卷已理毕",
         "importFinished": "卷已纳毕"
+      },
+      "controlPoints": {
+        "description": "此法器可于自动化或例行差事运行前行检：仅能略过或止此番运行，不能代君准允。",
+        "inactive": "尚不可用。更新或重装此法器时许之即可。",
+        "points": {
+          "will-routine-run": "同僚例行差事运行前",
+          "will-schedule-run": "自动化运行前"
+        },
+        "title": "行前检查",
+        "usage": "用法：编辑自动化或例行差事时，于「预检」择之。"
       }
     },
     "mcp": {
@@ -15252,7 +15266,27 @@
         "reasoningInvalid": "Reasoning 须为 {{values}} 之一",
         "preRunHookCommandRequired": "请填预检脚本命令",
         "templateParamRequired": "请填{{label}}",
-        "templateApplyFailed": "范本不可套，请察参数而后再试"
+        "templateApplyFailed": "范本不可套，请察参数而后再试",
+        "preRunPluginRequired": "请为预检择一法器"
+      },
+      "preRunPlugin": {
+        "choose": "择法器",
+        "empty": "尚无可行前检之法器。请装能行前检之法器，并于安装或更新时许之。",
+        "hint": "法器可放行、略此番或止此番运行，不能代君准允何事。",
+        "onFailure": {
+          "allow": "照常运行",
+          "block": "止之并录为未成",
+          "skip": "略此番"
+        },
+        "onFailureLabel": "法器有失时",
+        "source": {
+          "plugin": "法器",
+          "script": "脚本"
+        },
+        "sourceLabel": "检查之法",
+        "tooltip": "每番运行前先询君所择之法器：可放行、略此番或止此番运行，不能代君准允须君确认之事。",
+        "unavailable": "法器不可用",
+        "unavailableHint": "此法器已不可用。未改择他器前，运行时依「法器有失时」之设处置。"
       }
     },
     "chips": {
@@ -17622,7 +17656,8 @@
         "skillDisabled": "停技艺「{{title}}」",
         "skillMerged": "并技艺「{{title}}」入「{{into}}」而停之"
       }
-    }
+    },
+    "checkSource": "检查之法"
   },
   "cindyMakeDoctor": {
     "description": "察此机建置 Cindy 所需之环境。用法：/cindy-make-doctor",

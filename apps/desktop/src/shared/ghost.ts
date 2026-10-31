@@ -683,8 +683,82 @@ export type GhostSubscribeTopic = (typeof GHOST_SUBSCRIBE_TOPICS)[number];
  * 两个钩子都不拦 tool-call。声明了任一钩子必须 launch:'resident'(要挡路就得常驻
  * 在场,冷启动延迟不可接受),校验强制。
  */
-export const GHOST_SUBSCRIBE_HOOKS = ['will-user-message', 'will-assistant-message'] as const;
-export type GhostSubscribeHook = (typeof GHOST_SUBSCRIBE_HOOKS)[number];
+export const GHOST_MESSAGE_HOOKS = ['will-user-message', 'will-assistant-message'] as const;
+export type GhostMessageHook = (typeof GHOST_MESSAGE_HOOKS)[number];
+
+/**
+ * 控制节点(2026-10-31):Host 预先埋好的 will- 拦截点目录，插件按目录声明、
+ * 运行时用 `host-request {kind:'control-points'}` 查询，新插件不需要 Host 再发版。
+ * 与消息钩子共用 hookId + event-verdict 协议，差异：
+ * - 插件只能收紧：`allow` 只表示"不反对"，不能替用户批准本来需要确认的事；
+ * - 只问用户在该任务里选定的插件(任务的 preRunPlugin)，不是装了就管所有任务；
+ * - 出错(没装/停用/超时/崩溃/熔断)怎么办由用户在任务里设置(onFailure)，插件不能自报；
+ * - 只有用户在安装/更新确认里看到过的节点才可被选用(receipt approvedControlPoints)，
+ *   防止插件提前写上 Host 还不认识的节点名、Host 升级后静默获得拦截权。
+ * 新增节点 = 在本目录加一项 + 在 Host 对应流程按任务配置调用 screenControlPoint。
+ */
+export const GHOST_CONTROL_POINT_FAILURE_ACTIONS = ['allow', 'skip', 'block'] as const;
+export type GhostControlPointFailureAction = (typeof GHOST_CONTROL_POINT_FAILURE_ACTIONS)[number];
+
+export interface GhostControlPointSpec {
+  /** 插件可返回的裁决(allow 恒可用)。 */
+  actions: readonly ('allow' | 'skip' | 'block')[];
+  /** 用户可选的出错处理。 */
+  failureActions: readonly GhostControlPointFailureAction[];
+  /** 任务编辑页的默认出错处理；与脚本前置检查一致，出错即停止并记为失败。 */
+  defaultOnFailure: GhostControlPointFailureAction;
+  /** 单个插件的裁决时限(含按需唤醒)。 */
+  timeoutMs: number;
+  /** 权限清单 key(安装确认按它比对新增)。 */
+  permissionKey: string;
+  labelKey: string;
+  detailKey: string;
+}
+
+export const GHOST_CONTROL_POINTS = {
+  'will-schedule-run': {
+    actions: ['allow', 'skip', 'block'],
+    failureActions: ['allow', 'skip', 'block'],
+    defaultOnFailure: 'block',
+    timeoutMs: 30_000,
+    permissionKey: 'subscribe:hooks:schedule-run',
+    labelKey: 'subscribeScheduleRun',
+    detailKey: 'subscribeScheduleRunDetail',
+  },
+  'will-routine-run': {
+    actions: ['allow', 'skip', 'block'],
+    failureActions: ['allow', 'skip', 'block'],
+    defaultOnFailure: 'block',
+    timeoutMs: 30_000,
+    permissionKey: 'subscribe:hooks:routine-run',
+    labelKey: 'subscribeRoutineRun',
+    detailKey: 'subscribeRoutineRunDetail',
+  },
+} as const satisfies Record<string, GhostControlPointSpec>;
+export type GhostControlPointId = keyof typeof GHOST_CONTROL_POINTS;
+export const GHOST_CONTROL_POINT_IDS = Object.keys(GHOST_CONTROL_POINTS) as GhostControlPointId[];
+
+export function isGhostControlPointId(value: unknown): value is GhostControlPointId {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(GHOST_CONTROL_POINTS, value);
+}
+
+/** 插件 manifest 里声明且当前 Host 认识的控制节点。 */
+export function declaredGhostControlPoints(manifest: Pick<GhostManifest, 'subscribe'>): GhostControlPointId[] {
+  return (manifest.subscribe?.hooks ?? []).filter(isGhostControlPointId);
+}
+
+/** 某个已装插件在该控制节点上是否生效:声明 + 用户确认过。 */
+export function ghostControlPointActive(
+  ghost: Pick<InstalledGhost, 'enabled' | 'manifest' | 'approvedControlPoints'>,
+  point: GhostControlPointId,
+): boolean {
+  return ghost.enabled && declaredGhostControlPoints(ghost.manifest).includes(point) &&
+    ghost.approvedControlPoints?.includes(point) === true;
+}
+
+/** 当前 Host 认识的全部 will- 钩子(消息钩子 + 控制节点)。 */
+export const GHOST_SUBSCRIBE_HOOKS = [...GHOST_MESSAGE_HOOKS, ...GHOST_CONTROL_POINT_IDS] as const;
+export type GhostSubscribeHook = GhostMessageHook | GhostControlPointId;
 
 /**
  * 订阅槽详单(与 slots 含 'subscribe' 成对;有槽无详单允许装入但零事件——
@@ -1784,6 +1858,8 @@ export interface InstalledGhost {
   /** Read-only remote management projection; never persisted as approval. */
   uiPromptSuppressed?: true;
   delegationCapabilityApproved?: true;
+  /** Host receipt fact: control points the user confirmed, filtered to ones this Host knows and the manifest declares. */
+  approvedControlPoints?: GhostControlPointId[];
   /** Independent Host consent for read-only project task observation. */
   observeCapabilityApproved?: true;
   manifest: GhostManifest;
@@ -2526,6 +2602,16 @@ export function ghostPermissionItems(manifest: GhostManifest): GhostPermissionIt
             detailKey: 'subscribeAssistantReplyDetail',
           });
         }
+        // 控制节点逐点一项，key 来自目录：新增节点自动进确认清单，更新新增节点会被 diff 拦下复核。
+        for (const point of declaredGhostControlPoints(manifest)) {
+          const spec = GHOST_CONTROL_POINTS[point];
+          hookItems.push({
+            key: spec.permissionKey,
+            kind: 'subscribe',
+            labelKey: spec.labelKey,
+            detailKey: spec.detailKey,
+          });
+        }
         items.unshift(...hookItems);
       }
     // v2 有槽无详单已在归一化时丢弃，因此这里不存在零事件能力。
@@ -2752,13 +2838,26 @@ export function diffGhostPermissionItems(
  * mutable live manifest. Legacy or invalid installs have no approved baseline,
  * so every permission in the candidate must be reviewed as newly requested.
  */
+function withoutUnapprovedControlPoints(installed: InstalledGhost): GhostManifest['subscribe'] {
+  const subscribe = installed.manifest.subscribe;
+  if (!subscribe?.hooks) return subscribe;
+  const hooks = subscribe.hooks.filter((hook) =>
+    !isGhostControlPointId(hook) || installed.approvedControlPoints?.includes(hook) === true);
+  return { ...subscribe, hooks: hooks.length > 0 ? hooks : undefined };
+}
+
 export function diffInstalledGhostPermissionItems(
   installed: InstalledGhost,
   next: GhostManifest,
 ): GhostPermissionDiff {
   if (installed.approval.state === 'approved') {
     // Older Hosts preserved ui without granting page capabilities.
-    const previous = { ...installed.manifest, mcpApps: installed.uiCapabilityApproved === true ? installed.manifest.mcpApps : undefined };
+    const previous = {
+      ...installed.manifest,
+      mcpApps: installed.uiCapabilityApproved === true ? installed.manifest.mcpApps : undefined,
+      // 同理：声明了但用户从没确认过的控制节点不算旧权限，更新时作为新增项复核。
+      subscribe: withoutUnapprovedControlPoints(installed),
+    };
     return diffGhostPermissionItems(previous, next);
   }
   return {
@@ -5368,7 +5467,8 @@ function validateGhostManifestInput(value: unknown, preserveHistoricalTasks: boo
     if (Object.keys(subscribe).length === 0) {
       return { ok: false, reason: 'subscribe 订阅详单不能是空对象' };
     }
-    if (subscribe.hooks?.some((hook) => (GHOST_SUBSCRIBE_HOOKS as readonly string[]).includes(hook)) && raw.launch !== 'resident') {
+    // 只有消息钩子挡在用户发送热路径上、要求常驻；控制节点有独立时限，可按需唤醒。
+    if (subscribe.hooks?.some((hook) => (GHOST_MESSAGE_HOOKS as readonly string[]).includes(hook)) && raw.launch !== 'resident') {
       return {
         ok: false,
         reason:
@@ -6766,7 +6866,30 @@ export type GhostPipeHostRequest =
       kind: 'cindy-preference';
       /** 只能读取本插件已声明的媒体能力配置。 */
       capability: GhostMediaCapability;
+    }
+  | {
+      /** 查询当前 Host 提供的控制节点目录，以及本插件在各节点的生效状态。 */
+      type: 'host-request';
+      kind: 'control-points';
     };
+
+/** 任务「前置检查」可选的插件(Host 界面用)。 */
+export interface GhostControlPointCandidate {
+  /** 插件实例 id,任务里保存的就是它。 */
+  pluginId: string;
+  name: string;
+}
+
+/** `host-request {kind:'control-points'}` 的单项。 */
+export interface GhostControlPointInfo {
+  id: GhostControlPointId;
+  actions: readonly ('allow' | 'skip' | 'block')[];
+  timeoutMs: number;
+  /** 本插件 manifest 是否声明了该节点。 */
+  declared: boolean;
+  /** 声明且用户已在安装/更新确认里批准；用户在任务里选了本插件时 Host 才会询问。 */
+  active: boolean;
+}
 
 /** Replaces only the calling plugin's catalog; never starts a task. */
 export interface GhostPipeRecommendationsUpdate {
@@ -8558,6 +8681,52 @@ export type GhostDidEventData =
 
 export type GhostMessageHookData = { sessionId: string; text: string; model?: string };
 
+/** 定时任务执行前(will-schedule-run)交给插件的数据。不含工作目录等本机路径。 */
+export interface GhostScheduleRunPointData {
+  scheduleId: string;
+  runId: string;
+  name: string;
+  /** 任务正文(Agent 定时任务的指令；脚本任务为空串)。 */
+  prompt: string;
+  executionMode: 'agent' | 'script';
+  trigger: 'manual' | 'cron' | 'interval' | 'once';
+  firedAt: number;
+}
+
+/** 伙伴例行任务执行前(will-routine-run)交给插件的数据。 */
+export interface GhostRoutineRunPointData {
+  routineId: string;
+  runId: string;
+  botId: string;
+  name: string;
+  /** 例行任务指令。 */
+  prompt: string;
+  /** 内置例行任务种类(follow-up / todo-check …)；用户自建为 null。 */
+  builtin: string | null;
+  /** 本批触发：time / manual / 事件来源。 */
+  triggerIds: string[];
+  /** 本批事件(已按例行任务条件过滤；时间触发为空)。 */
+  events: { id: string; type: string; sourceId?: string; occurredAt: number; subject?: string; data: Record<string, unknown> }[];
+}
+
+export type GhostControlPointData = GhostScheduleRunPointData | GhostRoutineRunPointData;
+
+/**
+ * 控制节点裁决结果(宿主消费)。allow = 任务选定的插件不反对；skip/block 由该插件
+ * 给出，或插件出错时按任务的出错处理得出(failure: true)。
+ */
+export type GhostControlPointResult =
+  | { action: 'allow' }
+  | {
+      action: 'skip' | 'block';
+      ghostId: string;
+      ghostName: string;
+      reason: string;
+      /** true = 插件没有按时答复，按用户的出错处理设置得出。 */
+      failure: boolean;
+    };
+
+
 /**
  * 下行:主机 → 意识的事件推送(经管子 onHostMessage 到达)。
  * did- 分支带 topic/seq(每意识单调递增,可自查漏收;dropped = 上一段
@@ -8590,6 +8759,16 @@ export type GhostPipeEventPush =
       ts: number;
       /** text = 本轮 AI 回复全文;意识可放行/改写/自绘(见 GhostPipeEventVerdict)。 */
       data: GhostMessageHookData;
+    }
+  | {
+      /** 控制节点询问；插件在节点时限内回 event-verdict(allow/skip/block)。 */
+      type: 'event';
+      name: GhostControlPointId;
+      hookId: string;
+      ts: number;
+      /** 本次询问的截止时间(ms epoch)，插件据此安排外部请求的超时。 */
+      deadline: number;
+      data: GhostControlPointData;
     }
   | {
       /** 随包 Node 进程发来的 JSON-RPC notification / MCP 进度事件。 */
@@ -8672,7 +8851,7 @@ export type GhostPipeEventPush =
 export interface GhostPipeEventVerdict {
   type: 'event-verdict';
   hookId: string;
-  action: 'allow' | 'block' | 'rewrite' | 'render';
+  action: 'allow' | 'block' | 'rewrite' | 'render' | 'skip';
   /** block 时展示的理由。 */
   reason?: string;
   /** rewrite 时的新正文(替换消息正文;其它 action 忽略)。 */

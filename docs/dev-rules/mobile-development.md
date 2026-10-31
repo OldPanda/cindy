@@ -94,15 +94,21 @@ JSON 已包含 `worktree` / `expectedSource`、`region` / `bundleId`、目标设
 
 ### 仓库与个人配置的边界
 
-- 仓库维护工具要求、脚本参数、缓存与身份校验、mock 场景和验收合同；个人 Skill 调用这些入口，
-  不再实现第二套指纹、bundle ID 或缓存解析。
-- 默认区域、设备偏好、模拟器后端、接管时机与工具管理方式属于开发者的本地 profile/工作流。
-  本次明确指定的设备或区域高于个人默认；本次覆盖不自动写回 profile。
+- 仓库维护工具要求、脚本参数、缓存与身份校验、mock 场景、测试授权范围、接管与并行规则和
+  验收合同；Agent 直接按模拟器调试手册「截图与当前版本测试」执行，不另设个人测试 Skill，
+  也不实现第二套指纹、bundle ID 或缓存解析。
+- 只有完全属于个人的偏好留在仓库外：常用机型、模拟器后端（`CINDY_MOBILE_SIMULATOR`）等。
+  本次明确指定的设备或区域高于个人默认；本次覆盖不自动写回个人偏好。
 - 自定义 bundle ID、签名团队与私有端点留在本地配置；仓库提供模板和校验，凭证进入凭证存储。
 - 设备在线状态、已安装包、Metro 占用、工具位置和缓存命中是现场事实，每次探测，不作为长期偏好。
 
 不要用临时 Metro、端口探测或手工修改 `.env` 代替这些脚本。多 worktree、原生构建、
 登录态和日志排查见 `apps/mobile/docs/simulator-debugging.md`。
+
+多个 iOS 模拟器可以同时跑不同 worktree：每台设备的开发版 App 按自己的 `RCT_jsLocation` 选择
+Metro，那里没有 Metro 响应时才退回 `8081`。`8081` 属于其他任务、又不接管时，给本任务单独的
+设备和端口，步骤、验证与收尾见该手册的
+[Parallel devices](../../apps/mobile/docs/simulator-debugging.md#parallel-devices-another-task-owns-8081)。
 
 ## 分层验证
 

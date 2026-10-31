@@ -433,7 +433,20 @@ import {
   readLegacyEncryptedValue,
   type LegacyMigrationRead,
 } from './legacyMigrationRead.js';
-import { GHOST_SCHEME, ghostExternalLinkUrls } from '../../shared/ghost.js';
+import {
+  GHOST_CONTROL_POINT_IDS,
+  GHOST_CONTROL_POINTS,
+  GHOST_SCHEME,
+  ghostControlPointActive,
+  ghostExternalLinkUrls,
+  isGhostControlPointId,
+  type GhostControlPointData,
+  type GhostControlPointCandidate,
+  type GhostControlPointId,
+  type GhostControlPointInfo,
+  type GhostControlPointFailureAction,
+  type GhostControlPointResult,
+} from '../../shared/ghost.js';
 import { GhostPipeDispatcher } from './pipeDispatcher.js';
 import { GhostCardService, parseCardHeightReport } from './cardService.js';
 import { MailCardService } from './mailCards.js';
@@ -507,6 +520,7 @@ import {
   abortAllGhostInstallConsentPrompts,
   assertGhostInstallConsent,
   confirmedTaskCapability,
+  confirmedControlPoints,
   confirmedUiCapability,
   obtainGhostInstallConsent,
   type GhostInstallConsentDecision,
@@ -2948,6 +2962,64 @@ export async function screenGhostUserMessage(
     });
     return { action: 'allow' };
   }
+}
+
+/**
+ * 控制节点询问(定时任务、例行任务在运行前调用)。只问该任务选定的插件(preRunPlugin);
+ * 插件不可用或出错时按任务的 onFailure 处理。owner 在询问期间切换时按放行收口，调用方的
+ * 流程自己也会因 owner 失效而中止；网关本身异常同样按 onFailure 处理，不静默放行。
+ */
+export async function screenGhostControlPoint(
+  point: GhostControlPointId,
+  data: GhostControlPointData,
+  target: { pluginId: string; onFailure: GhostControlPointFailureAction },
+): Promise<GhostControlPointResult> {
+  const ownerStamp = getGhostOwnerPushStamp();
+  try {
+    const result = await getGhostSubscriptionGateway().screenControlPoint(point, data, target);
+    return isGhostOwnerStampCurrent(ownerStamp) ? result : { action: 'allow' };
+  } catch (err) {
+    log.warn('ghost control point screen failed', {
+      point,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    if (target.onFailure === 'allow') return { action: 'allow' };
+    return { action: target.onFailure, ghostId: target.pluginId, ghostName: target.pluginId, reason: '', failure: true };
+  }
+}
+
+/** 某插件看到的控制节点目录(只读；不含其它插件信息)。 */
+export function ghostControlPointInfo(ghostId: string): GhostControlPointInfo[] {
+  const ghost = findInstalledGhostByInstanceId(availableGhosts(), ghostId);
+  const declared = new Set(ghost?.manifest.subscribe?.hooks ?? []);
+  return GHOST_CONTROL_POINT_IDS.map((point) => ({
+    id: point,
+    actions: GHOST_CONTROL_POINTS[point].actions,
+    timeoutMs: GHOST_CONTROL_POINTS[point].timeoutMs,
+    declared: declared.has(point),
+    active: ghost ? ghostControlPointActive(ghost, point) : false,
+  }));
+}
+
+/**
+ * 保存任务的插件前置检查时把用户 / Agent 给的插件(实例 id 或唯一的插件 id)解析成
+ * 实例 id；插件不可选(没装、停用、没声明或没批准该节点)时报错，不保存一个必然失败的检查。
+ */
+export function resolveGhostControlPointPlugin(point: GhostControlPointId, pluginId: string): string {
+  const resolved = resolvePluginInstanceQuery(availableGhosts(), pluginId);
+  if (resolved.status === 'ambiguous') throwIpcError('INVALID_PARAMS', 'Several installed plugins share this id; use the instance id');
+  if (resolved.status !== 'unique') throwIpcError('NOT_FOUND', 'The pre-run check plugin is not installed');
+  if (!ghostControlPointActive(resolved.ghost, point)) {
+    throwIpcError('INVALID_PARAMS', 'This plugin is not enabled for pre-run checks; enable it and allow the check in its install or update prompt');
+  }
+  return installedGhostStoragePart(resolved.ghost);
+}
+
+/** 任务「前置检查」里可选的插件:已启用、声明了该节点且用户已批准。 */
+export function ghostControlPointCandidates(point: GhostControlPointId): GhostControlPointCandidate[] {
+  return availableGhosts()
+    .filter((ghost) => ghostControlPointActive(ghost, point))
+    .map((ghost) => ({ pluginId: installedGhostStoragePart(ghost), name: ghost.manifest.name }));
 }
 
 /** 被拦通知广播(register.ts 的 onUserMessageBlocked 依赖真身)。
@@ -7293,6 +7365,7 @@ async function installAndDockLocked(
     targetCapabilityApproved: confirmedTaskCapability(opts.consent.decision, installedBefore, opts.consent.manifest, 'targets'),
     uiCapabilityApproved: confirmedUiCapability(opts.consent.decision, installedBefore, opts.consent.manifest),
     delegationCapabilityApproved: confirmedTaskCapability(opts.consent.decision, installedBefore, opts.consent.manifest, 'delegation'),
+    approvedControlPoints: confirmedControlPoints(opts.consent.decision, installedBefore, opts.consent.manifest),
     observeCapabilityApproved: confirmedTaskCapability(opts.consent.decision, installedBefore, opts.consent.manifest, 'observe'),
     initiallyEnabled: opts.enable ?? false,
     expectedPackageSha256: opts.expectedPackageSha256,
@@ -7481,6 +7554,7 @@ async function updateLocalGhostPackageLocked(
           targetCapabilityApproved: confirmedTaskCapability(consent, previousGhost, inspected.manifest, 'targets'),
           uiCapabilityApproved: confirmedUiCapability(consent, previousGhost, inspected.manifest),
           delegationCapabilityApproved: confirmedTaskCapability(consent, previousGhost, inspected.manifest, 'delegation'),
+          approvedControlPoints: confirmedControlPoints(consent, previousGhost, inspected.manifest),
           observeCapabilityApproved: confirmedTaskCapability(consent, previousGhost, inspected.manifest, 'observe'),
           expectedPackageSha256,
           expectedInstalledApproval,
@@ -7980,6 +8054,7 @@ async function installOrUpdateMarketGhostPackageLocked(
           targetCapabilityApproved: confirmedTaskCapability(expected.consent, installed, inspected.manifest, 'targets'),
           uiCapabilityApproved: confirmedUiCapability(expected.consent, installed, inspected.manifest),
           delegationCapabilityApproved: confirmedTaskCapability(expected.consent, installed, inspected.manifest, 'delegation'),
+          approvedControlPoints: confirmedControlPoints(expected.consent, installed, inspected.manifest),
           observeCapabilityApproved: confirmedTaskCapability(expected.consent, installed, inspected.manifest, 'observe'),
           expectedPackageSha256: inspected.packageSha256,
           expectedInstalledApproval: expected.expectedInstalledApproval!,
@@ -9150,6 +9225,7 @@ export function registerGhostIpc(): void {
     if (type === 'host-request') {
       const kind = (payload as { kind?: unknown } | null)?.kind;
       if (kind === 'app-context') return currentGhostAppContext();
+      if (kind === 'control-points') return { ok: true, points: ghostControlPointInfo(id) };
       if (kind === 'cindy-preference') {
         return getGhostConfiguredMediaModel(
           id,
@@ -10233,6 +10309,21 @@ export function registerGhostIpc(): void {
       deferPluginUiPrompt(id, ghost.manifest.version);
       broadcastGhostsChanged(getGhostManager().list(), false, { projectionOnly: true });
     }
+  });
+
+  // 详情页「运行前检查」：只列本插件声明的节点与生效状态；哪个任务用它由任务自己选。
+  ipcMain.handle('ghosts:control-points:get', (event, id: unknown) => {
+    assertTrustedAppRendererEvent(event);
+    if (typeof id !== 'string' || !id.trim()) throwIpcError('INVALID_PARAMS', 'id must be a non-empty string');
+    requireGhostAvailableForActiveSession(id);
+    return ghostControlPointInfo(id).filter((point) => point.declared);
+  });
+
+  // 定时任务 / 例行任务编辑页的插件下拉。
+  ipcMain.handle('ghosts:control-points:candidates', (event, point: unknown) => {
+    assertTrustedAppRendererEvent(event);
+    if (!isGhostControlPointId(point)) throwIpcError('INVALID_PARAMS', 'unknown control point');
+    return ghostControlPointCandidates(point);
   });
 
   ipcMain.handle('ghosts:request-task-approval', async (event, id: unknown, capability: unknown) => {

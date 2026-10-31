@@ -7484,6 +7484,16 @@
         "unknownPublisher": "未知釋出者",
         "unknownReviewerDetail": "包裡帶有稽核宣告，但當前 Cindy 不認識這把稽核公鑰，因此不會顯示為已稽核。"
       },
+      "controlPoints": {
+        "title": "執行前檢查",
+        "description": "這個插件可以在自動化或例行任務執行前做檢查：只能跳過或停止這次執行，不能替你核准。",
+        "usage": "使用方式：編輯自動化或例行任務時，在「前置檢查」裡選它。",
+        "points": {
+          "will-schedule-run": "自動化執行前",
+          "will-routine-run": "夥伴的例行任務執行前"
+        },
+        "inactive": "還不能使用。更新或重新安裝這個插件時允許即可。"
+      },
       "perm": {
         "mail": "使用郵件草稿與傳送卡片",
         "mailDetail": "可在卡片中編輯和同步草稿，並在傳送前提供確認與撤銷倒數。",
@@ -7553,6 +7563,10 @@
         "subscribeHooksDetail": "傳送前先經它審閱：可攔下訊息，也可能改寫正文後再發出；被攔的訊息可編輯後重發。",
         "subscribeAssistantReply": "可讀取並重寫 AI 的回覆",
         "subscribeAssistantReplyDetail": "AI 每輪迴復完成後先經它處理：可潤色改寫正文(直接替換，不留原文)，或用自繪卡片替換回復氣泡(卡片替換時原文保留，可一鍵檢視)。",
+        "subscribeScheduleRun": "可在你選定的自動化執行前做檢查",
+        "subscribeScheduleRunDetail": "在「前置檢查」裡選了它的自動化，執行前會先詢問它。它看得到這項自動化的名稱和指令，可以讓這次跳過或停止，但不能替你核准。",
+        "subscribeRoutineRun": "可在你選定的夥伴例行任務執行前做檢查",
+        "subscribeRoutineRunDetail": "在「前置檢查」裡選了它的例行任務，每次觸發後會先詢問它。它看得到例行任務的指令和觸發它的事件內容，可以讓這次跳過或停止，但不能替你核准。",
         "card": "渲染訊息卡片",
         "cardExternalLink": "卡片內可宣告外鏈，經你確認後開啟瀏覽器",
         "cardExternalLinkDetail": "卡片中的連結點選後會彈出確認框，你同意後才會在系統瀏覽器中開啟；僅限 http/https 地址。",
@@ -15206,6 +15220,25 @@
         },
         "browse": "選擇指令碼檔案（也可直接拖拽到輸入框）"
       },
+      "preRunPlugin": {
+        "sourceLabel": "檢查方式",
+        "source": {
+          "script": "腳本",
+          "plugin": "插件"
+        },
+        "tooltip": "每次執行前先詢問你選的插件：它可以放行、跳過這次或停止這次執行，不能替你核准任何需要你確認的事。",
+        "choose": "選擇插件",
+        "unavailable": "插件無法使用",
+        "unavailableHint": "這個插件已經無法使用。改選其他插件前，執行時依「插件出錯時」的設定處理。",
+        "hint": "插件可以放行、跳過這次或停止這次執行，不能替你核准任何事。",
+        "empty": "還沒有能做執行前檢查的插件。安裝支援執行前檢查的插件，並在安裝或更新時允許。",
+        "onFailureLabel": "插件出錯時",
+        "onFailure": {
+          "allow": "照常執行",
+          "skip": "跳過這次",
+          "block": "停止並記為失敗"
+        }
+      },
       "validation": {
         "nameRequired": "請填寫名稱",
         "promptRequired": "請填寫 Prompt",
@@ -15218,6 +15251,7 @@
         "modelUnavailable": "模型 {{model}} 已不可用，請重新選擇",
         "reasoningInvalid": "Reasoning 必須是 {{values}} 之一",
         "preRunHookCommandRequired": "請填寫前置檢查指令碼命令",
+        "preRunPluginRequired": "請為前置檢查選擇插件",
         "templateParamRequired": "請填寫{{label}}",
         "templateApplyFailed": "無法套用模板，請檢查參數後重試"
       }
@@ -17524,6 +17558,7 @@
     "sessionModeFresh": "每次新建任務（隔離上下文）",
     "sessionModeHint": "沿用同一任務會在同一個例行任務的對話裡繼續；每次新建會為每次觸發建立一個獨立任務，執行結束後關閉。",
     "quietHint": "僅回報變化或問題。提醒和定時傳送可關閉此項。",
+    "checkSource": "檢查方式",
     "checkCommand": "前置檢查命令",
     "checkHint": "選填。在電腦上先檢查：結束代碼 2 跳過本次執行，0 繼續執行，異常仍會回報。清空可移除。",
     "timeoutMs": "檢查逾時（毫秒，留空不限時）",

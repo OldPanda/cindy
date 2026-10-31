@@ -738,7 +738,7 @@ export function MainLayout() {
         | { type: 'plugin'; pluginId: string }
         | { type: 'local-plugin-share'; snapshotId: string }
         | { type: 'installed-plugin'; ghostId?: string }
-        | { type: 'settings'; tab: 'voice-input' | 'providers' | 'billing' | 'remote-control'; connect?: string; intent?: 'topup' },
+        | { type: 'settings'; tab: 'voice-input' | 'providers' | 'billing' | 'remote-control' | 'builtin-tools'; connect?: string; intent?: 'topup' },
     ) => {
       if (payload.type === 'chat-message') {
         const search = new URLSearchParams({ messageId: payload.messageId });

@@ -77,6 +77,7 @@ Use when the plugin listens for events, supplies routine triggers or interacts w
 - [插件提交例行任务事件 routineEvents](references/plugin-routine-events.md)
 - [插件事件订阅 subscribe（§4.6）](references/plugin-event-subscriptions.md)
 - [插件处理 Agent 回复的消息钩子（§4.6.1）](references/plugin-message-hooks.md)
+- [插件控制节点：自动化与例行任务运行前先问插件（§4.6.2）](references/plugin-control-points.md)
 - [插件发起 Agent 任务与请求自动化（§4.11）](references/plugin-agent-tasks.md)
 - [插件读取当前任务上下文 sessionContext（§4.13）](references/plugin-session-context.md)
 - [插件创建工作区任务入口 workspace（§4.17）](references/plugin-workspace-sessions.md)

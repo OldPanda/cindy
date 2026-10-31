@@ -7594,6 +7594,16 @@
         "unknownPublisher": "Editor desconhecido",
         "unknownReviewerDetail": "O pacote declara ter uma revisão, mas esta versão de Cindy não reconhece a chave do revisor, pelo que não é apresentado como revisto."
       },
+      "controlPoints": {
+        "title": "Verificações antes da execução",
+        "description": "Este plugin pode verificar automatizações ou rotinas antes de serem executadas. Pode ignorar ou parar uma execução, nunca aprová-la por ti.",
+        "usage": "Para o usar, escolhe-o em Verificação prévia ao editar uma automatização ou rotina.",
+        "points": {
+          "will-schedule-run": "Antes de executar uma automatização",
+          "will-routine-run": "Antes de executar uma rotina de um colega"
+        },
+        "inactive": "Ainda indisponível. Permite-o ao atualizar ou reinstalar este plugin."
+      },
       "perm": {
         "mail": "Usar rascunhos de email e cartões de envio",
         "mailDetail": "Editar e sincronizar rascunhos num cartão, com confirmação e uma contagem decrescente para anular antes do envio.",
@@ -7663,6 +7673,10 @@
         "subscribeHooksDetail": "Revê cada mensagem antes do envio: pode bloqueá-la ou reescrever o texto antes de ser enviado; as mensagens bloqueadas podem ser editadas e reenviadas.",
         "subscribeAssistantReply": "Pode ler e reescrever as respostas da IA",
         "subscribeAssistantReplyDetail": "Processa cada resposta da IA depois de concluída: pode melhorar ou reescrever o texto (substituindo-o diretamente, sem manter o original), ou substituir o balão de resposta pelo seu próprio cartão renderizado (nesse caso, o texto original é mantido e pode ser visto com um toque).",
+        "subscribeScheduleRun": "Pode verificar automatizações escolhidas antes de serem executadas",
+        "subscribeScheduleRunDetail": "As automatizações em que o escolheres em Verificação prévia consultam-no primeiro. Vê o nome e as instruções e pode ignorar ou parar essa execução, mas não aprovar nada por ti.",
+        "subscribeRoutineRun": "Pode verificar rotinas de colegas escolhidas antes de serem executadas",
+        "subscribeRoutineRunDetail": "As rotinas em que o escolheres em Verificação prévia consultam-no primeiro. Vê as instruções e os eventos que as acionaram e pode ignorar ou parar essa execução, mas não aprovar nada por ti.",
         "card": "Apresenta cartões de mensagens",
         "cardExternalLink": "Os cartões podem declarar ligações externas que abrem o navegador após confirmação",
         "cardExternalLinkDetail": "Clicar numa ligação de um cartão apresenta uma caixa de diálogo de confirmação; o URL só abre no navegador do sistema após a sua aprovação. Apenas são permitidos endereços http/https.",
@@ -15449,6 +15463,25 @@
         },
         "browse": "Escolha um ficheiro de script (ou arraste um para o campo)"
       },
+      "preRunPlugin": {
+        "sourceLabel": "Verificar com",
+        "source": {
+          "script": "Script",
+          "plugin": "Plugin"
+        },
+        "tooltip": "Antes de cada execução, a Cindy consulta o plugin escolhido. Pode deixar a execução prosseguir, ignorar esta execução ou pará-la. Nunca pode aprovar algo que precise da tua confirmação.",
+        "choose": "Escolher plugin",
+        "unavailable": "Plugin indisponível",
+        "unavailableHint": "Este plugin já não está disponível. Até escolheres outro, aplica-se a opção “Se o plugin falhar”.",
+        "hint": "O plugin pode deixar a execução prosseguir, ignorar esta execução ou pará-la. Nunca pode aprovar nada por ti.",
+        "empty": "Ainda não há plugins que possam verificar execuções. Instala um plugin compatível com verificação prévia e permite-a ao instalar ou atualizar.",
+        "onFailureLabel": "Se o plugin falhar",
+        "onFailure": {
+          "allow": "Executar normalmente",
+          "skip": "Ignorar esta execução",
+          "block": "Parar e marcar como falhada"
+        }
+      },
       "validation": {
         "nameRequired": "O nome é obrigatório",
         "promptRequired": "O prompt é obrigatório",
@@ -15461,6 +15494,7 @@
         "modelUnavailable": "O modelo {{model}} já não está disponível. Selecione outro modelo.",
         "reasoningInvalid": "O raciocínio tem de ser um de {{values}}",
         "preRunHookCommandRequired": "Introduza o comando de verificação prévia",
+        "preRunPluginRequired": "Escolhe um plugin para a verificação prévia",
         "templateParamRequired": "Introduz {{label}}",
         "templateApplyFailed": "Não foi possível aplicar o modelo. Verifique os parâmetros e tente novamente."
       }
@@ -17787,6 +17821,7 @@
     "sessionModeFresh": "Nova sessão por acionamento (isolar contexto)",
     "sessionModeHint": "O modo persistente mantém uma única conversa da rotina. Uma nova sessão cria e fecha uma conversa isolada para cada acionamento.",
     "quietHint": "Comunicar apenas alterações ou problemas. Desative para lembretes e mensagens agendadas.",
+    "checkSource": "Verificar com",
     "checkCommand": "Comando de verificação prévia à execução",
     "checkHint": "Opcional. Verifica o computador antes de cada execução: exit 2 ignora a execução, exit 0 continua e os erros permanecem visíveis. Limpe para remover.",
     "timeoutMs": "Tempo limite da verificação (ms, vazio para sem limite)",
