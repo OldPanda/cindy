@@ -2,6 +2,8 @@ import { isSafeGhostRelativePath } from './internal/ghostPath.js';
 import { validateWithStoredMcpApps, parseGhostMcpApps, type GhostMcpApps } from './toolUi.js';
 import { parseGhostSecretCheck, type GhostSecretCheckDecl } from './secretCheck.js';
 import { parseGhostRoutineEvents, type GhostRoutineEvents } from './routineEvents.js';
+import { GHOST_LOCALES, type GhostLocale } from './locales.js';
+export { GHOST_LOCALES, type GhostLocale } from './locales.js';
 
 /** `.cindy` 包根目录中的 manifest 文件名。 */
 export const GHOST_MANIFEST_FILE = 'ghost.json';
@@ -16,8 +18,6 @@ export const GHOST_MANIFEST_SCHEMA_VERSION = 3 as const;
 export const GHOST_MANIFEST_SUMMARY_MAX_CHARS = 300;
 
 /** Cindy host locales supported by Plugin manifest resources. */
-export const GHOST_LOCALES = ['zh-CN', 'en', 'ja', 'ko'] as const;
-export type GhostLocale = (typeof GHOST_LOCALES)[number];
 export type GhostManifestLocales = {
   en: string;
 } & Partial<Record<Exclude<GhostLocale, 'en'>, string>>;

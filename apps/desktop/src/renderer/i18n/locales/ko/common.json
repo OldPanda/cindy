@@ -17641,6 +17641,14 @@
         "skillDisabled": "스킬 「{{title}}」 끔",
         "skillMerged": "스킬 「{{title}}」를 「{{into}}」에 합치고 끔"
       }
+    },
+    "remote": {
+      "pause": "루틴 일시 중지",
+      "resume": "루틴 재개",
+      "addSchedule": "일정 추가",
+      "addInterval": "간격 추가",
+      "addEvent": "이벤트 트리거 추가",
+      "filterField": "필터 필드"
     }
   },
   "cindyMakeDoctor": {

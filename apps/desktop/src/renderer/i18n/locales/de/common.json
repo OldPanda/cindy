@@ -17743,6 +17743,14 @@
         "skillDisabled": "Skill „{{title}}“ deaktiviert",
         "skillMerged": "Skill „{{title}}“ mit „{{into}}“ zusammengeführt und deaktiviert"
       }
+    },
+    "remote": {
+      "pause": "Routine pausieren",
+      "resume": "Routine fortsetzen",
+      "addSchedule": "Zeitplan hinzufügen",
+      "addInterval": "Intervall hinzufügen",
+      "addEvent": "Ereignisauslöser hinzufügen",
+      "filterField": "Filterfeld"
     }
   },
   "cindyMakeDoctor": {

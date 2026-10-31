@@ -17907,6 +17907,14 @@
       "pendingTurns_many": "{{count}} échanges",
       "lastLearned_many": "{{count}} modifications",
       "readTurns_many": "{{count}} échanges lus"
+    },
+    "remote": {
+      "pause": "Suspendre la routine",
+      "resume": "Reprendre la routine",
+      "addSchedule": "Ajouter un horaire",
+      "addInterval": "Ajouter un intervalle",
+      "addEvent": "Ajouter un déclencheur d’événement",
+      "filterField": "Champ de filtre"
     }
   },
   "cindyMakeDoctor": {

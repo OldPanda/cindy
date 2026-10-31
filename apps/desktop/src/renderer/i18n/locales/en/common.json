@@ -17709,6 +17709,14 @@
         "skillDisabled": "Disabled skill “{{title}}”",
         "skillMerged": "Merged skill “{{title}}” into “{{into}}” and disabled it"
       }
+    },
+    "remote": {
+      "pause": "Pause Routine",
+      "resume": "Resume Routine",
+      "addSchedule": "Add Schedule",
+      "addInterval": "Add Interval",
+      "addEvent": "Add Event Trigger",
+      "filterField": "Filter Field"
     }
   },
   "cindyMakeDoctor": {

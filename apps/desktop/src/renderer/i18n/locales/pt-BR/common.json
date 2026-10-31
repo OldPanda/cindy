@@ -17907,6 +17907,14 @@
       "pendingTurns_many": "{{count}} trocas",
       "lastLearned_many": "{{count}} alterações",
       "readTurns_many": "{{count}} trocas lidas"
+    },
+    "remote": {
+      "pause": "Pausar rotina",
+      "resume": "Retomar rotina",
+      "addSchedule": "Adicionar horário",
+      "addInterval": "Adicionar intervalo",
+      "addEvent": "Adicionar gatilho de evento",
+      "filterField": "Campo de filtro"
     }
   },
   "cindyMakeDoctor": {

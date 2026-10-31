@@ -17641,6 +17641,14 @@
         "skillDisabled": "停用了技能「{{title}}」",
         "skillMerged": "把技能「{{title}}」并入「{{into}}」并停用"
       }
+    },
+    "remote": {
+      "pause": "暂停例行任务",
+      "resume": "恢复例行任务",
+      "addSchedule": "添加定时条件",
+      "addInterval": "添加间隔条件",
+      "addEvent": "添加事件触发器",
+      "filterField": "筛选字段"
     }
   },
   "cindyMakeDoctor": {

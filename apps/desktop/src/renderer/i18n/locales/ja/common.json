@@ -17641,6 +17641,14 @@
         "skillDisabled": "スキル「{{title}}」をオフに",
         "skillMerged": "スキル「{{title}}」を「{{into}}」に統合してオフに"
       }
+    },
+    "remote": {
+      "pause": "ルーティンを一時停止",
+      "resume": "ルーティンを再開",
+      "addSchedule": "スケジュールを追加",
+      "addInterval": "間隔を追加",
+      "addEvent": "イベントトリガーを追加",
+      "filterField": "絞り込みフィールド"
     }
   },
   "cindyMakeDoctor": {

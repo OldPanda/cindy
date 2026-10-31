@@ -49,7 +49,7 @@ Use when implementing plugin code, calling host APIs or declaring access to reso
 - [插件打开宿主统一模型选择器 pickModel（§4.0.3b）](references/plugin-agent-models.md)
 - [插件接入媒体模型与生成结果（§4.0.4）](references/plugin-media.md)
 - [插件联网与凭证代发 network（§4.7）](references/plugin-network.md)
-- [插件文件操作与持久作品库 fs / library（§4.10）](references/plugin-files-and-library.md)
+- [插件文件操作、持久作品库与对话文件交接 fs / library / cindy_handoff_files（§4.10）](references/plugin-files-and-library.md)
 - [插件随包 Node 工作进程、CLI 与 stdio MCP（§4.12）](references/plugin-node-worker.md)
 
 ### 插件界面与用户交互

@@ -17674,7 +17674,15 @@
         "skillMerged": "併技藝「{{title}}」入「{{into}}」而停之"
       }
     },
-    "checkSource": "檢查之法"
+    "checkSource": "檢查之法",
+    "remote": {
+      "pause": "暫停例行差事",
+      "resume": "續行例行差事",
+      "addSchedule": "增定時條件",
+      "addInterval": "增間隔條件",
+      "addEvent": "增事件條件",
+      "filterField": "篩選欄位"
+    }
   },
   "cindyMakeDoctor": {
     "description": "察此機建置 Cindy 所需之環境。用法：/cindy-make-doctor",
