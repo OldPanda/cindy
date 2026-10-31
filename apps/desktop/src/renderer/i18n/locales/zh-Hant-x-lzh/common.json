@@ -7611,7 +7611,9 @@
         "subscribeRoutineRun": "可於君所擇之同僚例行差事運行前行檢",
         "subscribeRoutineRunDetail": "凡於「預檢」擇之之例行差事，每番觸發必先詢之。其可見差事之指令与觸發事件之內容，可令此番略過或止之，不能代君准允。",
         "subscribeScheduleRun": "可於君所擇之自動化運行前行檢",
-        "subscribeScheduleRunDetail": "凡於「預檢」擇之之自動化，運行前必先詢之。其可見此自動化之名与指令，可令此番略過或止之，不能代君准允。"
+        "subscribeScheduleRunDetail": "凡於「預檢」擇之之自動化，運行前必先詢之。其可見此自動化之名与指令，可令此番略過或止之，不能代君准允。",
+        "subscribeStartTask": "可為新差事擇模型",
+        "subscribeStartTaskDetail": "新任務擇其所供之模型時，彼閱首條訊息，於汝已連之模型中擇一。唯擇一次，任務中途不易模型。"
       },
       "connections": {
         "confirmTitle": "增連線位址",
@@ -8216,10 +8218,14 @@
         "inactive": "尚不可用。更新或重裝此法器時許之即可。",
         "points": {
           "will-routine-run": "同僚例行差事運行前",
-          "will-schedule-run": "自動化運行前"
+          "will-schedule-run": "自動化運行前",
+          "will-start-task": "開新差事時"
         },
         "title": "行前檢查",
-        "usage": "用法：編輯自動化或例行差事時，於「預檢」擇之。"
+        "usage": "用法：編輯自動化或例行差事時，於「預檢」擇之。",
+        "descriptionWithStartTask": "僅於君所擇之差事介入：運行前僅能略過或止此番，開新差事時僅為首言擇模型一次。皆不能代君准允。",
+        "titleWithStartTask": "法器介入之時",
+        "usageStartTask": "用法：於新任務之模型擇器中，擇其所供之模型。"
       }
     },
     "mcp": {
@@ -13868,6 +13874,14 @@
       "closeDescription": "將止而刪此番追問，主差事不受其擾。",
       "closeConfirm": "闔而刪之",
       "closeFailed": "刪追問未成，請稍後再試。"
+    },
+    "pluginModelRoute": {
+      "kept": {
+        "failed": "{{plugin}} 未及回應，此差事用",
+        "no-opinion": "{{plugin}} 此番未改模型，此差事用",
+        "unavailable-route": "{{plugin}} 所擇之模型今不可用，此差事用"
+      },
+      "routed": "為此差事擇用"
     }
   },
   "ccAgent": {

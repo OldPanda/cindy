@@ -7597,10 +7597,14 @@
       "controlPoints": {
         "title": "Vérifications avant exécution",
         "description": "Ce plugin peut vérifier les automatisations ou routines avant leur exécution. Il peut ignorer ou arrêter une exécution, jamais l’approuver à ta place.",
+        "titleWithStartTask": "Quand ce plugin intervient",
+        "descriptionWithStartTask": "Il n’intervient que dans les tâches où tu l’as choisi : avant une exécution, il peut seulement l’ignorer ou l’arrêter ; pour une nouvelle tâche, il choisit un modèle une seule fois, pour le premier message. Il n’approuve jamais rien à ta place.",
         "usage": "Pour l’utiliser, choisis-le dans Vérification préalable en modifiant une automatisation ou une routine.",
+        "usageStartTask": "Pour l’utiliser, choisissez un modèle qu’il propose dans le sélecteur de modèles d’une nouvelle tâche.",
         "points": {
           "will-schedule-run": "Avant l’exécution d’une automatisation",
-          "will-routine-run": "Avant l’exécution d’une routine d’un coéquipier"
+          "will-routine-run": "Avant l’exécution d’une routine d’un coéquipier",
+          "will-start-task": "Au démarrage d’une nouvelle tâche"
         },
         "inactive": "Pas encore disponible. Autorise-le lors de la mise à jour ou de la réinstallation de ce plugin."
       },
@@ -7677,6 +7681,8 @@
         "subscribeScheduleRunDetail": "Les automatisations pour lesquelles tu le choisis dans Vérification préalable le consultent d’abord. Il voit leur nom et leurs instructions et peut ignorer ou arrêter cette exécution, sans rien approuver à ta place.",
         "subscribeRoutineRun": "Peut vérifier les routines choisies avant leur exécution",
         "subscribeRoutineRunDetail": "Les routines pour lesquelles tu le choisis dans Vérification préalable le consultent d’abord. Il voit leurs instructions et les événements déclencheurs et peut ignorer ou arrêter cette exécution, sans rien approuver à ta place.",
+        "subscribeStartTask": "Peut choisir le modèle des nouvelles tâches",
+        "subscribeStartTaskDetail": "Lorsqu’une nouvelle tâche utilise un modèle qu’il propose, il lit le premier message et choisit l’un de vos modèles connectés. Il choisit une seule fois ; le modèle ne change pas pendant la tâche.",
         "card": "Affiche des cartes de message",
         "cardExternalLink": "Les cartes peuvent déclarer des liens externes qui ouvrent votre navigateur après confirmation",
         "cardExternalLinkDetail": "Cliquer sur un lien de carte affiche une boîte de dialogue de confirmation ; l'URL ne s'ouvre dans le navigateur du système qu'après votre approbation. Seules les adresses http/https sont autorisées.",
@@ -12873,6 +12879,14 @@
     "verificationFailed": "Cindy n'a pas pu confirmer le rétablissement de la connexion ChatGPT. Vérifiez à nouveau."
   },
   "chat": {
+    "pluginModelRoute": {
+      "routed": "a choisi pour cette tâche",
+      "kept": {
+        "no-opinion": "{{plugin}} n’a pas changé de modèle cette fois ; cette tâche utilise",
+        "failed": "{{plugin}} n’a pas répondu à temps ; cette tâche utilise",
+        "unavailable-route": "{{plugin}} a choisi un modèle indisponible ; cette tâche utilise"
+      }
+    },
     "imageDelivery": {
       "stored": "Image transmise",
       "failed": "Échec de la transmission de l'image. Réessayez de transférer l'image existante.",

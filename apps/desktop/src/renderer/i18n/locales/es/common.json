@@ -7597,10 +7597,14 @@
       "controlPoints": {
         "title": "Comprobaciones previas",
         "description": "Este complemento puede comprobar automatizaciones o rutinas antes de que se ejecuten. Puede omitir o detener una ejecución, nunca aprobarla por ti.",
+        "titleWithStartTask": "Cuándo interviene este complemento",
+        "descriptionWithStartTask": "Solo interviene en las tareas donde lo elegiste: antes de una ejecución solo puede omitirla o detenerla, y en una tarea nueva elige un modelo una vez, para el primer mensaje. Nunca aprueba nada por ti.",
         "usage": "Para usarlo, elígelo en Comprobación previa a la ejecución al editar una automatización o rutina.",
+        "usageStartTask": "Para usarlo, elige un modelo que ofrezca en el selector de modelos de una tarea nueva.",
         "points": {
           "will-schedule-run": "Antes de ejecutar una automatización",
-          "will-routine-run": "Antes de ejecutar una rutina de un compañero"
+          "will-routine-run": "Antes de ejecutar una rutina de un compañero",
+          "will-start-task": "Al empezar una tarea nueva"
         },
         "inactive": "Aún no disponible. Permítelo al actualizar o reinstalar este complemento."
       },
@@ -7677,6 +7681,8 @@
         "subscribeScheduleRunDetail": "Las automatizaciones en las que lo elijas en Comprobación previa a la ejecución le consultan primero. Ve su nombre e instrucciones y puede omitir o detener esa ejecución, pero no aprobar nada por ti.",
         "subscribeRoutineRun": "Puede comprobar rutinas de compañeros elegidas antes de ejecutarse",
         "subscribeRoutineRunDetail": "Las rutinas en las que lo elijas en Comprobación previa a la ejecución le consultan primero. Ve sus instrucciones y los eventos que las activaron, y puede omitir o detener esa ejecución, pero no aprobar nada por ti.",
+        "subscribeStartTask": "Puede elegir el modelo de las tareas nuevas",
+        "subscribeStartTaskDetail": "Cuando una tarea nueva usa un modelo que ofrece, lee el primer mensaje y elige uno de tus modelos conectados. Elige una sola vez; el modelo no cambia durante la tarea.",
         "card": "Representa tarjetas de mensajes",
         "cardExternalLink": "Las tarjetas pueden declarar enlaces externos que abren su navegador después de la confirmación.",
         "cardExternalLinkDetail": "Al hacer clic en el enlace de una tarjeta se muestra un cuadro de diálogo de confirmación; El URL se abre en el navegador de su sistema solo después de su aprobación. Sólo se permiten direcciones http/https.",
@@ -12873,6 +12879,14 @@
     "verificationFailed": "Cindy no pudo confirmar si se restauró el inicio de sesión de ChatGPT. Vuelve a comprobarlo."
   },
   "chat": {
+    "pluginModelRoute": {
+      "routed": "eligió para esta tarea",
+      "kept": {
+        "no-opinion": "{{plugin}} no cambió el modelo esta vez; esta tarea usa",
+        "failed": "{{plugin}} no respondió a tiempo; esta tarea usa",
+        "unavailable-route": "{{plugin}} eligió un modelo que no puedes usar; esta tarea usa"
+      }
+    },
     "imageDelivery": {
       "stored": "Imagen entregada",
       "failed": "Error en la entrega de la imagen. Vuelva a intentar transferir la imagen existente.",

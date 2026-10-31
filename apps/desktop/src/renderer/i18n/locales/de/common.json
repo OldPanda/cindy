@@ -7530,10 +7530,14 @@
       "controlPoints": {
         "title": "Prüfungen vor der Ausführung",
         "description": "Dieses Plugin kann Automatisierungen oder Routinen vor dem Start prüfen. Es kann einen Lauf überspringen oder stoppen, aber nie für dich genehmigen.",
+        "titleWithStartTask": "Wann dieses Plugin eingreift",
+        "descriptionWithStartTask": "Es greift nur bei Aufgaben ein, für die du es gewählt hast: Vor einem Lauf kann es ihn nur überspringen oder stoppen, bei einer neuen Aufgabe wählt es einmal ein Modell für die erste Nachricht. Es genehmigt nie etwas für dich.",
         "usage": "Wähle es beim Bearbeiten einer Automatisierung oder Routine unter Vorabprüfung aus.",
+        "usageStartTask": "So nutzt du es: Wähle in der Modellauswahl einer neuen Aufgabe ein Modell, das dieses Plugin bereitstellt.",
         "points": {
           "will-schedule-run": "Vor der Ausführung einer Automatisierung",
-          "will-routine-run": "Vor der Ausführung einer Routine eines Teammitglieds"
+          "will-routine-run": "Vor der Ausführung einer Routine eines Teammitglieds",
+          "will-start-task": "Wenn eine neue Aufgabe startet"
         },
         "inactive": "Noch nicht verfügbar. Erlaube es beim Aktualisieren oder Neuinstallieren dieses Plugins."
       },
@@ -7610,6 +7614,8 @@
         "subscribeScheduleRunDetail": "Automatisierungen, bei denen du es unter Vorabprüfung wählst, fragen es zuerst. Es sieht Name und Anweisungen und kann den Lauf überspringen oder stoppen, aber nichts für dich genehmigen.",
         "subscribeRoutineRun": "Kann ausgewählte Teammate-Routinen vor dem Start prüfen",
         "subscribeRoutineRunDetail": "Routinen, bei denen du es unter Vorabprüfung wählst, fragen es zuerst. Es sieht die Anweisungen und auslösenden Ereignisse und kann den Lauf überspringen oder stoppen, aber nichts für dich genehmigen.",
+        "subscribeStartTask": "Kann das Modell für neue Aufgaben wählen",
+        "subscribeStartTaskDetail": "Wenn eine neue Aufgabe ein Modell dieses Plugins nutzt, liest es die erste Nachricht und wählt eines deiner verbundenen Modelle. Es wählt einmal; das Modell ändert sich während der Aufgabe nicht.",
         "card": "Stellt Nachrichtenkarten dar",
         "cardExternalLink": "Karten können externe Links enthalten, die nach Bestätigung deinen Browser öffnen",
         "cardExternalLinkDetail": "Beim Anklicken eines Kartenlinks erscheint ein Bestätigungsdialog. Die URL öffnet sich erst nach deiner Zustimmung im Systembrowser. Nur http/https-Adressen sind erlaubt.",
@@ -12771,6 +12777,14 @@
     "verificationFailed": "Cindy konnte nicht bestätigen, ob die ChatGPT-Anmeldung wiederhergestellt ist. Prüfe es erneut."
   },
   "chat": {
+    "pluginModelRoute": {
+      "routed": "hat für diese Aufgabe gewählt:",
+      "kept": {
+        "no-opinion": "{{plugin}} hat das Modell diesmal nicht geändert, diese Aufgabe nutzt",
+        "failed": "{{plugin}} hat nicht rechtzeitig geantwortet, diese Aufgabe nutzt",
+        "unavailable-route": "{{plugin}} hat ein nicht nutzbares Modell gewählt, diese Aufgabe nutzt"
+      }
+    },
     "imageDelivery": {
       "stored": "Bild übertragen",
       "failed": "Bildübertragung fehlgeschlagen. Versuche erneut, das vorhandene Bild zu übertragen.",

@@ -7487,10 +7487,14 @@
       "controlPoints": {
         "title": "実行前チェック",
         "description": "このプラグインは、自動化やルーティンの実行前にチェックできます。実行をスキップまたは停止できますが、代わりに承認することはできません。",
+        "titleWithStartTask": "プラグインが関わるタイミング",
+        "descriptionWithStartTask": "選んだタスクにだけ関わります。実行前は実行のスキップか停止だけ、新しいタスクでは最初のメッセージで一度だけモデルを選びます。代わりに承認することはできません。",
         "usage": "使うには、自動化やルーティンの編集画面の「事前チェック」で選びます。",
+        "usageStartTask": "使い方：新しいタスクのモデル選択で、このプラグインが提供するモデルを選びます。",
         "points": {
           "will-schedule-run": "自動化の実行前",
-          "will-routine-run": "仲間のルーティンの実行前"
+          "will-routine-run": "仲間のルーティンの実行前",
+          "will-start-task": "新しいタスクを始めるとき"
         },
         "inactive": "まだ使用できません。このプラグインの更新または再インストール時に許可してください。"
       },
@@ -7567,6 +7571,8 @@
         "subscribeScheduleRunDetail": "「事前チェック」でこのプラグインを選んだ自動化は、実行前に先に確認します。自動化の名前と指示を参照でき、今回をスキップまたは停止できますが、代わりに承認することはできません。",
         "subscribeRoutineRun": "選んだチームメイトのルーティンの実行前にチェックできます",
         "subscribeRoutineRunDetail": "「事前チェック」でこのプラグインを選んだルーティンは、トリガーされるたびに先に確認します。ルーティンの指示とトリガーしたイベントの内容を参照でき、今回をスキップまたは停止できますが、代わりに承認することはできません。",
+        "subscribeStartTask": "新しいタスクのモデルを選べます",
+        "subscribeStartTaskDetail": "新しいタスクでこのプラグインのモデルを選ぶと、最初のメッセージを読んで、接続済みのモデルから 1 つ選びます。選ぶのは 1 回だけで、タスクの途中でモデルは変わりません。",
         "card": "メッセージカードを描画",
         "cardExternalLink": "カード内で外部リンクを宣言でき、確認後にブラウザで開きます",
         "cardExternalLinkDetail": "カード内のリンクをクリックすると確認ダイアログが表示され、承認後にシステムブラウザで開きます。http/https アドレスのみ許可されます。",
@@ -12718,6 +12724,14 @@
     "verificationFailed": "ChatGPT ログインが復旧したか確認できませんでした。再確認してください。"
   },
   "chat": {
+    "pluginModelRoute": {
+      "routed": "がこのタスクに選んだモデル：",
+      "kept": {
+        "no-opinion": "{{plugin}} は今回モデルを変えませんでした。このタスクは",
+        "failed": "{{plugin}} から時間内に応答がなかったため、このタスクは",
+        "unavailable-route": "{{plugin}} が選んだモデルは使えないため、このタスクは"
+      }
+    },
     "teammateProcess": {"record":"作業履歴","operations":"操作履歴","elapsed":"処理中 {{duration}}","took":"所要時間 {{duration}}","processing":"処理中","worked":"作業履歴","thinking":"考えています","thought":"考えました","failed_other":"{{count}} 件の呼び出しに失敗","separator":"・","actions":{"running":{"read":"ファイルを確認しています","edit":"ファイルを編集しています","search":"検索しています","web":"ウェブを調べています","command":"コマンドを実行しています","tools":"ツールを使用しています","delegate":"作業を依頼しています","plan":"計画を更新しています"},"done":{"read":"ファイルを確認しました","edit":"ファイルを編集しました","search":"検索しました","web":"ウェブを調べました","command":"コマンドを実行しました","tools":"ツールを使用しました","delegate":"作業を依頼しました","plan":"計画を更新しました"}}},
     "imageDelivery": {
       "stored": "画像を受け取りました",
