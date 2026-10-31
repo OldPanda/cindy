@@ -1079,7 +1079,9 @@ export function MainLayout() {
   // 左 / 上 / 下边页签组:按「组里有没有可见页签」注册 / 注销 pane,并保证树里有它。
   useTabGroupPanes({
     sessionId: rightSidebarSessionId,
-    enabled: rightSidebarAvailable && rsbWindow.loaded && !rsbDetached && !isSettingsRoute,
+    enabled: rsbWindow.loaded && !rsbDetached && !isSettingsRoute,
+    // 离开聊天页(如 /plugins)时在聊天页出现过的组停放而不卸载,webview 不重载(#8081)。
+    onChatRoute: rightSidebarAvailable,
     remoteHostId: rightSidebarWorkdirInfo.remoteHostId,
     deviceLinkDeviceId: rightSidebarWorkdirInfo.deviceLinkDeviceId,
     subagentsAvailable: rightSidebarSubagentsAvailable,
@@ -1995,7 +1997,6 @@ export function MainLayout() {
               {/* 固定唤起入口只负责显示 / 聚焦。detach / maximize / 收起属于面板自身，
                 在 RightSidebarShell 的顶栏内渲染，不再与本入口混用。 */}
               <RightSidebarToggle
-                size="toolbar"
                 action="show"
                 collapsed={rsbDetached ? !rsbWindow.open : isRightSidebarCollapsed}
                 onToggle={handleOpenRightSidebar}

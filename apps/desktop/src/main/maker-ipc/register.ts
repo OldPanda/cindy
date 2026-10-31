@@ -46,6 +46,7 @@ import {
   showMobilePluginTaskPermission,
   setPluginTaskHandler,
   setPluginTargetAdapter,
+  setPluginObserveAdapter,
   assertPluginTargetQueuedDelivery,
   getPluginTaskSourceSessionId,
   setPluginTaskUninstaller,
@@ -60,6 +61,7 @@ import {
   acceptPluginInvocation,
 } from '../cindy-brain/index.js';
 import { listPluginTargetCandidates, resolvePluginTargetSession } from './pluginTargetCandidates.js';
+import { assertPluginObservableTask, listPluginObserveTasks } from './pluginObserveTasks.js';
 import { createPluginTargetStore } from './pluginTargetStore.js';
 import { collectPluginAttachmentPayloadTexts, withPluginMessageAttachments } from '../cindy-media/pluginMessageAttachments.js';
 import { isPluginTaskPermissionMode, type PluginTaskRoute, type PluginTaskRequest } from '../../shared/pluginTasks.js';
@@ -1097,6 +1099,8 @@ import {
 } from './orcaRemoteWorkerHost.js';
 import { createOrcaRemoteWorkers, invokeDeviceValue, type OrcaRemoteWorkers } from './orcaRemoteWorkers.js';
 import { listWorkerAgentLocations, readWorkerAgentLocations } from './workerAgentLocations.js';
+import { createControlledModelCatalogReader } from './controlledModelCatalog.js';
+import { CONTROLLED_MODEL_CATALOG_CHANNEL } from '../../shared/controlledModelCatalog.js';
 import {
   ORCA_EXECUTION_DEVICES_CHANNEL,
   ORCA_REMOTE_WORKER_BRIDGE_CHANNEL,
@@ -1114,6 +1118,7 @@ import {
 import { INPUT_HANDOFF_LOCAL_CHANNEL, INPUT_HANDOFF_LOCAL_PICTURE_CHANNEL, type InputHandoffHolder, type InputHandoffSnapshot } from '@cindy/device-link';
 import { getInputHandoffService, initInputHandoffService } from '../input-handoff/service.js';
 import { closeInputHandoffAskpass, initInputHandoffAskpass } from '../input-handoff/askpass/index.js';
+import { resolveGithubAuthRecovery } from '../input-handoff/askpass/githubRecoveryHost.js';
 import { onQuit } from '../lifecycle.js';
 import { isInputHandoffDisabledForSession } from '../input-handoff/botPolicy.js';
 import { createMacHandoffDriver, readPictureQr } from '../input-handoff/macDriver.js';
@@ -1484,11 +1489,13 @@ import {
 } from './mobileClientPromptNote.js';
 import { buildWireMessageSourceNote, readWireSourceDevice } from './messageSourceNote.js';
 import { SIDE_CHAT_CONTEXT } from './sideChatContext.js';
-import { getResolvedMainLocale } from '../i18n.js';
+import { getMainClassicalStyle, getResolvedMainLocale } from '../i18n.js';
 import {
   buildUiLanguageErrorNote,
+  readClaimedClassicalStyle,
   readClaimedUiLanguage,
   stampTurnUiLanguage,
+  turnClassicalStyleFromSendOpts,
   turnUiLanguageFromSendOpts,
 } from './uiLanguageErrorNote.js';
 import {
@@ -3660,6 +3667,7 @@ initInputHandoffService({
 });
 // sudo / ssh / git password prompts in the owner's local tasks become one-step 代输入 cards.
 initInputHandoffAskpass({
+  getAuthRecovery: resolveGithubAuthRecovery,
   startTerminalPrompt: (request) => getInputHandoffService()?.startTerminalPrompt(request) ?? { ok: false },
   isDisabledForSession: isInputHandoffDisabledForSession,
   logger: log,
@@ -10418,6 +10426,38 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
   };
 
   const makerSessionRegistry = createElectronIpcHandlerRegistry();
+  // A picker reads several source catalogs concurrently. Share only the in-flight
+  // directory request within one account; retain no authorization snapshot.
+  let controlledLocationsRead: {
+    owner: ReturnType<typeof getCurrentDbClientSnapshot>;
+    promise: ReturnType<typeof readWorkerAgentLocations>;
+  } | undefined;
+  const readControlledCatalog = createControlledModelCatalogReader({
+    assertCaller: () => {
+      const caller = getDeviceLinkInvokeContext();
+      if (!caller || caller.sharedTask) throwIpcError('PRECONDITION_FAILED', 'Same-account remote control required');
+    },
+    captureOwner: () => {
+      const owner = getCurrentDbClientSnapshot();
+      return () => {
+        if (!owner || getCurrentDbClientSnapshot() !== owner) {
+          throwIpcError('PRECONDITION_FAILED', 'Model catalog account changed');
+        }
+      };
+    },
+    locations: () => {
+      const owner = getCurrentDbClientSnapshot();
+      if (controlledLocationsRead?.owner === owner) return controlledLocationsRead.promise;
+      const promise = readWorkerAgentLocations({ favoriteSources: true }).finally(() => {
+        if (controlledLocationsRead?.promise === promise) controlledLocationsRead = undefined;
+      });
+      controlledLocationsRead = { owner, promise };
+      return promise;
+    },
+    invoke: (deviceId, channel, args, assertOwner) =>
+      remoteBackgroundInvoke(deviceId, channel, args, { preSend: assertOwner }),
+  });
+  makerSessionRegistry.handle(CONTROLLED_MODEL_CATALOG_CHANNEL, (_event, request) => readControlledCatalog(request));
   registerMakerSessionCreateHandler<Session>(makerSessionRegistry, {
     // CREATE_SESSION 同样先走 remote ensure:remote draft (尤其 collab
     // lead) 的 SSH 重连 / agent 安装 / codex daemon MCP 注入必须先于
@@ -15001,6 +15041,14 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
     }
   };
   setPluginTaskHandler(handlePluginTask);
+  setPluginObserveAdapter({
+    projectTasks: listPluginObserveTasks,
+    openTask: async (taskId, guard) => {
+      await assertPluginObservableTask(taskId);
+      guard();
+      openMainWindowSession(taskId, { focus: 'if-active' });
+    },
+  });
   let pluginTargetReviewReady = false;
   setPluginTargetAdapter({
     prepareInvocation: preparePluginInvocation,
@@ -19171,6 +19219,7 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
       /** coordinator 从队列项透传的手机来源(main 构造,非 wire 输入)。 */
       fromMobileClient?: boolean;
       uiLanguage?: string;
+      classicalStyle?: string;
       /**
        * 消息来源(coordinator 从队列项透传;直连 maker:steer 只有 IPC 边界按 invoke
        * context 盖的 sourceDevice,其余字段的 wire 值已被 stripMainOnlySendOpts 剥掉)。
@@ -19293,7 +19342,9 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
         })
       : null;
     const steerLanguageNote = steerAllowsEnvironmentNotes
-      ? buildUiLanguageErrorNote(turnUiLanguageFromSendOpts(so, getResolvedMainLocale()))
+      ? buildUiLanguageErrorNote(turnUiLanguageFromSendOpts(so, getResolvedMainLocale()), {
+          classicalStyle: turnClassicalStyleFromSendOpts(so, getMainClassicalStyle()),
+        })
       : null;
     // 环境说明与 send 事务共用同一份去重记忆:插话进的是同一个原生上下文。
     const steerNotePlan = steerAllowsEnvironmentNotes
@@ -21376,6 +21427,7 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
     // Only Main-created welcomes and restored host snapshots may carry this policy.
     delete normalized.toolsDisabled;
     delete normalized.uiLanguage;
+    delete normalized.classicalStyle;
     const refs = requireSessionRefs(normalized.sessionRefs);
     if (!isDeviceLinkInvoke()) {
       // preload/renderer 不属于可信边界，不能直接注入历史正文。
@@ -21830,6 +21882,8 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
             remote: deviceLinkInvoke,
             claimed: readClaimedUiLanguage(item),
             fallback: getResolvedMainLocale(),
+            claimedClassicalStyle: readClaimedClassicalStyle(item),
+            fallbackClassicalStyle: getMainClassicalStyle(),
           },
         );
         assertCurrentInputGeneration();
@@ -22145,6 +22199,8 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
             remote: deviceLinkInvoke,
             claimed: readClaimedUiLanguage(item),
             fallback: getResolvedMainLocale(),
+            claimedClassicalStyle: readClaimedClassicalStyle(item),
+            fallbackClassicalStyle: getMainClassicalStyle(),
           },
         );
         assertCurrentInputGeneration();
@@ -22513,6 +22569,8 @@ export function registerMakerIpc(maker: Maker, options: RegisterMakerIpcOptions)
             remote,
             claimed: readClaimedUiLanguage(item),
             fallback: getResolvedMainLocale(),
+            claimedClassicalStyle: readClaimedClassicalStyle(item),
+            fallbackClassicalStyle: getMainClassicalStyle(),
           },
         );
         assertCurrentInputGeneration();

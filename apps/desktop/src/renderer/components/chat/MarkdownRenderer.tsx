@@ -864,7 +864,7 @@ function LightboxImage({
   [key: string]: unknown;
 }) {
   const { t } = useTranslation();
-  const { status: imageStatus, onError } = useImageLoadFailure(src, streaming);
+  const { status: imageStatus, onError, canRetry, retry } = useImageLoadFailure(src, streaming);
   // Right-click → custom popover menu. We track cursor pos so a 0×0 virtual
   // trigger can anchor the Radix DropdownMenu wherever the user clicked.
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -878,7 +878,13 @@ function LightboxImage({
   if (imageStatus) {
     let fallbackName = src?.split(/[\\/]/).pop() ?? 'image';
     try { fallbackName = decodeURIComponent(fallbackName); } catch { /* malformed link */ }
-    return <ImageMissingPlaceholder filename={alt || fallbackName} status={imageStatus} />;
+    return (
+      <ImageMissingPlaceholder
+        filename={alt || fallbackName}
+        status={imageStatus}
+        onRetry={canRetry ? retry : undefined}
+      />
+    );
   }
 
   const zoomLabel = alt || t('chat.media.clickToZoom');

@@ -1,5 +1,6 @@
 import { groupMaskVisualFixture } from './groupMaskVisualFixture';
 import { groupSettingsVisualFixture } from './groupSettingsVisualFixture';
+import { sessionImportVisualFixture } from './sessionImportVisualFixture';
 import { SHARED_REMOTE_CONTROL_FIXTURE } from '@cindy/maker-shared/fixtures';
 import { buildUiMockRows, UI_MOCK_SHOWCASE_PROJECTS, type UiMockSessionRow } from '@cindy/maker-shared/ui-mock';
 import { projectHistoryView } from '@cindy/maker-shared/message-window';
@@ -24,6 +25,7 @@ import type {
 } from '@/device-link/mobileMakerTransport';
 import { remoteSessionStore } from '@/session/remoteSessionStore';
 import { pluginVisualFixture } from '@/debug/pluginVisualFixture';
+import { mailDraftCardFixture, mailVisualFixture, VISUAL_MAIL_DRAFT_CALL_ID, VISUAL_MAIL_DRAFT_SESSION_ID } from '@/debug/mailVisualFixture';
 import { teammateVisualFixture, teammateVisualReplyAt, VISUAL_TEAMMATE_SESSION_ID, VISUAL_TEAMMATE_THREAD_ROOT_ID, visualTeammateThreads } from '@/debug/teammateVisualFixture';
 import { markdownPreviewFixture } from '@/debug/markdownPreviewFixture';
 import type { InputProjection, PendingInteraction, RemoteMessage, RemoteSession } from '@/session/types';
@@ -224,6 +226,8 @@ async function visualMockInvoke<T = unknown>(
   if (mask !== undefined) return mask as T;
   const groupSettings = groupSettingsVisualFixture(channel, args[0]);
   if (groupSettings !== undefined) return groupSettings as T;
+  const sessionImport = sessionImportVisualFixture(channel, args[0]);
+  if (sessionImport !== undefined) return sessionImport as T;
   // #6713 native regression: open /companions/groups/table-qa?deviceId=cindy-visual-mock-mac.
   // Only reachable through the existing __DEV__ visual-mock provider; no real account or server.
   if (process.env.EXPO_PUBLIC_CINDY_GROUP_TABLE_DEMO === '1'
@@ -254,6 +258,8 @@ async function visualMockInvoke<T = unknown>(
     } as T;
   }
   const realData = await loadVisualRealDataSnapshot();
+  const mailResult = realData ? undefined : mailVisualFixture(channel, args) ?? mailDraftCardFixture(channel, args);
+  if (mailResult !== undefined) return mailResult as T;
   const pluginResult = realData ? undefined : pluginVisualFixture(channel, args);
   if (pluginResult !== undefined) return pluginResult as T;
   const teammateResult = realData ? undefined : teammateVisualFixture(channel, args);
@@ -564,6 +570,7 @@ function catalogSession(row: UiMockSessionRow): RemoteSession {
 
 function visualMockSession(id: string): RemoteSession {
   if (id === 'visual-teammate-process') return { ...visualMockSession('ui-mock-rich-answer'), id, source: 'bot', title: 'Cindy' };
+  if (id === VISUAL_MAIL_DRAFT_SESSION_ID) return { ...visualMockSession('ui-mock-rich-answer'), id, title: '回复试玩反馈' };
   if (id === VISUAL_TEAMMATE_SESSION_ID || id.startsWith(`${VISUAL_TEAMMATE_SESSION_ID}:`)
     || [...visualTeammateThreads.values()].some(thread => thread.sessionId === id)) return {
     ...visualMockSession('ui-mock-rich-answer'), id, source: 'bot', title: 'Cindy · 演示群任务',
@@ -589,6 +596,12 @@ function sessionFromShared(
 }
 
 function visualMockMessages(sessionId: string): RemoteMessage[] {
+  if (sessionId === VISUAL_MAIL_DRAFT_SESSION_ID) return [
+    message(sessionId, 'mail-draft-user', 'user', '帮我回复 Avery，说两个问题都记下了，约下周二或周三下午通话。', -60000),
+    message(sessionId, 'mail-draft-call', 'tool_use', { toolName: 'mcp__cindy__ghost_call', input: { ghost_id: 'google-gmail', tool: 'gmail_run' }, toolUseId: 'mail-draft-call' }, -50000),
+    message(sessionId, 'mail-draft-result', 'tool_result', JSON.stringify({ ok: true, result: { draft: 'saved', xdt_card_id: VISUAL_MAIL_DRAFT_CALL_ID } }), -49000, { toolUseId: 'mail-draft-call' }),
+    message(sessionId, 'mail-draft-answer', 'assistant', '草稿已经写好，抄送了 Sam 和试玩团队。确认没问题就点发送。', -45000, { agentMeta: { assistantPhase: 'final_answer', turnCompleted: true } }),
+  ];
   if (sessionId === 'visual-teammate-process') return [
     message(sessionId, 'fixture-process-source', 'user', '帮我整理任务和 PR 的进展。', -90000),
     message(sessionId, 'fixture-first-work', 'thinking', { text: '核对任务记录', durationMs: 1000 }, -80000),

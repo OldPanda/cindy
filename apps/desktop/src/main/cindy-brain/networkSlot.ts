@@ -26,7 +26,14 @@
 import { randomUUID } from 'node:crypto';
 
 import { sniffMediaMime, additionalMp3BytesNeeded } from '../cindy-media/sniffMediaMime.js';
-import { isCindyOfficialTrustInfo } from './GhostManager.js';
+import { classifyFetchNetworkFailure, fetchTimeoutFailure } from './fetchFailure.js';
+import { canUseGithubHostCredentials } from './GhostManager.js';
+import {
+  applyMcpAppsManualHeaders,
+  pluginDeclaresMcpAppsUi,
+  toolOpensMcpAppsPage,
+  type McpAppsManualRef,
+} from './mcpAppsManualHeaders.js';
 
 import {
   GHOST_FETCH_BODY_MAX_BYTES,
@@ -86,7 +93,14 @@ export interface NetworkSlotDeps {
     /** null = 已证明是本地会话；string = SSH remote；undefined = 未知。 */
     remoteHostId: string | null | undefined;
     channel: 'session' | 'script';
+    /** 该次调用的插件工具名；旧登记缺省时不按工具自动带手册头。 */
+    tool?: string;
   } | null;
+  /**
+   * 本客户端内置《Cindy MCP Apps 页面生成手册》的 CDN 地址与 sha256；版本无关或
+   * 找不到手册时 null。未注入时不带手册头。
+   */
+  mcpAppsManual?(): McpAppsManualRef | null;
   /**
    * 读某意识某条凭证的明文(safeStorage 现读,不缓存——用户改了 key 下一单
    * 即生效);未配置 / 读失败返回 null。
@@ -810,6 +824,7 @@ export class GhostNetworkSlot {
       label?: unknown;
       authAccount?: unknown;
       callId?: unknown;
+      mcpAppsManual?: unknown;
     };
 
     // ── 载荷形状校验(不占在途名额)──────────────────────────────────
@@ -828,6 +843,9 @@ export class GhostNetworkSlot {
     }
     const requestCallId = p.callId as string | undefined;
     const callId = requestCallId ?? 'unattributed';
+    if (p.mcpAppsManual !== undefined && typeof p.mcpAppsManual !== 'boolean') {
+      return { ok: false, message: 'mcpAppsManual 必须是布尔值(或不传)' };
+    }
     let body: string | Uint8Array | undefined;
     if (p.body !== undefined) {
       if (typeof p.body !== 'string') return { ok: false, message: 'body 必须是字符串' };
@@ -1105,13 +1123,7 @@ export class GhostNetworkSlot {
     const declaredHosts = net?.hosts ?? [];
     const declaredSecrets = net?.secrets ?? [];
     const ghCliSecrets = declaredSecrets.filter((secret) => secret.source === 'gh-cli');
-    if (
-      ghCliSecrets.length > 0 &&
-      (ghost.manifest.id !== 'cindy-github' || ghost.namespace != null ||
-        ghost.namespaceState === 'pending' ||
-        ghost.namespaceState === 'unconfirmed' ||
-        !isCindyOfficialTrustInfo(ghost.trust))
-    ) {
+    if (ghCliSecrets.length > 0 && !canUseGithubHostCredentials(ghost)) {
       return { ok: false, message: '本意识未通过官方 GitHub 宿主凭证信任校验，已阻断 gh-cli 凭证请求' };
     }
     // 连接地址每单现读快照(用户在设置页增删地址下一单即生效);本单内含
@@ -1137,6 +1149,8 @@ export class GhostNetworkSlot {
           (connectionDecls.length > 0 ? ';如是自建服务地址,请先在意识设置页添加该连接' : ''),
       };
     }
+    // 手册头只在沙箱 cindy.fetch 上生效；Node 工作进程的请求只剥除插件自带的同名头。
+    const mcpAppsManual = nodeAuth ? null : this.selectMcpAppsManual(instanceKey, ghost, requestCallId, p.mcpAppsManual);
 
     // ── 凭证注入:命中本次目标域名的每条声明凭证,保险库现读明文拼头
     // (交换型凭证在此换取/取缓存令牌)。未配置的凭证快速失败(带清晰
@@ -1306,6 +1320,8 @@ export class GhostNetworkSlot {
               };
             }
           }
+          // 与凭证头一样逐跳重判：只带给 network 已声明的主机，换到其它主机即删掉。
+          applyMcpAppsManualHeaders(hopHeaders, mcpAppsManual && hostDeclared(currentUrl.hostname) ? mcpAppsManual : null);
           if (nodeAuth) {
             assertStillValid();
             deleteHeaderVariants(hopHeaders, 'Authorization');
@@ -1622,14 +1638,17 @@ export class GhostNetworkSlot {
       };
     } catch (err) {
       const aborted = controller.signal.aborted;
-      const message = nodeAuth ? (aborted ? 'NODE_AUTH_REQUEST_ABORTED' : 'NODE_AUTH_REQUEST_FAILED') : aborted
-        ? `请求超时(${timeoutMs}ms)`
+      // 网络层失败带稳定 errorCode,原因码进 message;识别不出的(守门抛错等)保持原文、不打码。
+      const network = nodeAuth ? null : aborted ? fetchTimeoutFailure(timeoutMs) : classifyFetchNetworkFailure(err);
+      const message = nodeAuth ? (aborted ? 'NODE_AUTH_REQUEST_ABORTED' : 'NODE_AUTH_REQUEST_FAILED')
+        : network ? network.reason
         : err instanceof Error ? err.message : String(err);
       // 错误消息可能带 URL(含 query),日志只记 host,消息本身回给沙箱前不动
       // (意识本来就知道自己请求了什么,不构成泄露)。
       this.deps.log?.warn('ghost fetch-request failed', { ghostId: instanceKey, callId, method, host: url.hostname, aborted, error: message,
+        ...(network ? { errorCode: network.errorCode, ...(network.causeCode ? { causeCode: network.causeCode } : {}) } : {}),
       });
-      return { ok: false, message: `请求失败:${message}` };
+      return { ok: false, message: `请求失败:${message}`, ...(network ? { errorCode: network.errorCode } : {}) };
     } finally {
       if (hasTransfer) progress?.(undefined, undefined, '文件处理结束');
       nodeAuth?.signal.removeEventListener('abort', abortNode);
@@ -1639,6 +1658,30 @@ export class GhostNetworkSlot {
       const left = (this.inflight.get(instanceKey) ?? 1) - 1;
       if (left <= 0) this.inflight.delete(instanceKey);
       else this.inflight.set(instanceKey, left);
+    }
+  }
+
+  /**
+   * 本次请求是否带手册头：插件显式传 mcpAppsManual 时以它为准；否则仅当 callId
+   * 对应的在途工具在 mcpApps.ui 中对模型可见（会打开页面卡片）时带上。
+   */
+  private selectMcpAppsManual(
+    instanceKey: string,
+    ghost: InstalledGhost,
+    callId: string | undefined,
+    option: boolean | undefined,
+  ): McpAppsManualRef | null {
+    if (option === false) return null;
+    if (option !== true) {
+      // 没声明 MCP Apps 页面的插件不查在途调用，保持原有请求路径不变。
+      if (!callId || !pluginDeclaresMcpAppsUi(ghost.manifest)) return null;
+      const call = this.deps.inFlightCallInfo?.(callId) ?? null;
+      if (call?.ghostId !== instanceKey || !toolOpensMcpAppsPage(ghost.manifest, call.tool)) return null;
+    }
+    try {
+      return this.deps.mcpAppsManual?.() ?? null;
+    } catch {
+      return null;
     }
   }
 
