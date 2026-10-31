@@ -7868,6 +7868,22 @@
         "revealed": "Tarea mostrada en la lista de tareas",
         "revealFailed": "No se pudo mostrar la tarea en la lista de tareas"
       },
+      "handoff": {
+        "title": "Archivos entregados a este complemento en conversaciones",
+        "description": "Copias de los archivos que entregaste a este complemento en conversaciones. Cada copia se elimina automáticamente tras 7 días sin usarse.",
+        "empty": "Aún no se ha entregado ningún archivo a este complemento en una conversación.",
+        "loadFailed": "No se pudo cargar la lista de archivos. Inténtalo más tarde.",
+        "refresh": "Actualizar",
+        "openInFinder": "Abrir en Finder",
+        "openInExplorer": "Abrir en el Explorador de archivos",
+        "meta": "{{size}} · Entregado el {{handedAt}} · Se elimina automáticamente el {{expiresAt}}",
+        "delete": "Eliminar",
+        "deleteNamed": "Eliminar {{name}}",
+        "deleteTitle": "¿Eliminar este archivo?",
+        "deleteDescription": "Tras eliminarlo, el complemento y las páginas abiertas ya no podrán usar «{{name}}». No se puede deshacer.",
+        "deleteFailed": "No se pudo eliminar el archivo. Inténtalo más tarde.",
+        "cancel": "Cancelar"
+      },
       "library": {
         "title": "Biblioteca persistente",
         "loading": "Cargando información de la biblioteca…",
@@ -15982,6 +15998,7 @@
       "titleRevealPath": "¿Permitir que el Agent reciba la ruta local de este archivo multimedia?",
       "count": "{{count}} archivos",
       "descriptionAttachments": "Los siguientes archivos están fuera del directorio de trabajo de esta sesión. Si lo permites, se entregarán a este complemento (solo recibe huellas digitales del contenido, nunca rutas).",
+      "descriptionHandoff": "Los archivos siguientes están fuera del directorio de trabajo de esta sesión. Si lo permites, el complemento recibirá copias de ellos (nunca sus rutas); las copias se eliminan automáticamente tras 7 días sin usarse.",
       "descriptionDir": "El siguiente directorio o archivo está fuera del directorio de trabajo de esta sesión. Si lo permites, sus archivos se entregarán a este complemento para subirlos (solo recibe un ticket de un solo uso, nunca rutas).",
       "descriptionSaveDir": "El siguiente directorio está fuera del directorio de trabajo de esta sesión. Si lo permites, este complemento podrá guardar en él los archivos descargados (nunca se sobrescriben los archivos existentes).",
       "descriptionRevealPath": "La ruta se devuelve al Agent actual solo después de que lo permitas y se incluirá en el historial de la conversación; los dispositivos vinculados podrían sincronizar ese historial. Esto no otorga a ningún complemento acceso al archivo.",

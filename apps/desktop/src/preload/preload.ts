@@ -1613,6 +1613,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearUsage: (subjectId: string | null): Promise<void> => ipcRenderer.invoke('ghosts:usage-clear', subjectId),
     libraryOverview: (id: string): Promise<import('../shared/ghost').GhostLibraryOverview> =>
       ipcRenderer.invoke('ghosts:library-overview', id),
+    handoffList: (id: string): Promise<import('../shared/ghost').GhostHandoffFile[]> =>
+      ipcRenderer.invoke('ghosts:handoff-list', id),
+    handoffFolder: (id: string): Promise<string | null> => ipcRenderer.invoke('ghosts:handoff-folder', id),
+    handoffDelete: (id: string, ref: string): Promise<{ existed: boolean }> =>
+      ipcRenderer.invoke('ghosts:handoff-delete', id, ref),
     libraryPickLocation: (
       id: string,
     ): Promise<{

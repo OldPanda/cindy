@@ -7868,6 +7868,22 @@
         "revealed": "Tarefa exibida na lista de tarefas",
         "revealFailed": "Não foi possível mostrar a tarefa na lista de tarefas"
       },
+      "handoff": {
+        "title": "Arquivos entregues a este plugin em conversas",
+        "description": "Cópias dos arquivos que você entregou a este plugin em conversas. Cada cópia é excluída automaticamente após 7 dias sem uso.",
+        "empty": "Nenhum arquivo foi entregue a este plugin em uma conversa ainda.",
+        "loadFailed": "Não foi possível carregar a lista de arquivos. Tente novamente mais tarde.",
+        "refresh": "Atualizar",
+        "openInFinder": "Abrir no Finder",
+        "openInExplorer": "Abrir no Explorador de Arquivos",
+        "meta": "{{size}} · Entregue em {{handedAt}} · Excluído automaticamente em {{expiresAt}}",
+        "delete": "Excluir",
+        "deleteNamed": "Excluir {{name}}",
+        "deleteTitle": "Excluir este arquivo?",
+        "deleteDescription": "Após a exclusão, o plugin e as páginas abertas não poderão mais usar “{{name}}”. Não é possível desfazer.",
+        "deleteFailed": "Não foi possível excluir o arquivo. Tente novamente mais tarde.",
+        "cancel": "Cancelar"
+      },
       "library": {
         "title": "Biblioteca persistente",
         "loading": "Carregando informações da biblioteca…",
@@ -15982,6 +15998,7 @@
       "titleRevealPath": "Permitir que o Agent receba o caminho local deste arquivo de mídia?",
       "count": "{{count}} arquivos",
       "descriptionAttachments": "Os arquivos abaixo estão fora do diretório de trabalho desta sessão. Se você permitir, eles serão repassados a este plugin (ele recebe apenas impressões digitais do conteúdo, nunca caminhos).",
+      "descriptionHandoff": "Os arquivos abaixo estão fora do diretório de trabalho desta sessão. Se você permitir, o plugin recebe cópias deles (nunca os caminhos); as cópias são excluídas automaticamente após 7 dias sem uso.",
       "descriptionDir": "O diretório/arquivo abaixo está fora do diretório de trabalho desta sessão. Se você permitir, seus arquivos serão repassados a este plugin para envio (ele recebe apenas um tíquete de uso único, nunca caminhos).",
       "descriptionSaveDir": "O diretório abaixo está fora do diretório de trabalho desta sessão. Se você permitir, este plugin poderá salvar nele os arquivos baixados (arquivos existentes nunca são sobrescritos).",
       "descriptionRevealPath": "O caminho só é retornado ao Agent atual após sua permissão e passará a fazer parte do registro da conversa; dispositivos pareados podem sincronizar esse registro. Isso não concede a nenhum plugin acesso ao arquivo.",

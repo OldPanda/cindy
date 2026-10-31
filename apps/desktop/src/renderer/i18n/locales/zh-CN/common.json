@@ -7758,6 +7758,22 @@
         "revealed": "任务已显示到任务列表",
         "revealFailed": "未能将任务显示到任务列表"
       },
+      "handoff": {
+        "title": "对话中交给插件的文件",
+        "description": "这些是你在对话中交给该插件的文件副本，7 天未使用后自动删除。",
+        "empty": "还没有在对话中交给该插件的文件。",
+        "loadFailed": "无法读取文件列表，请稍后重试。",
+        "refresh": "刷新",
+        "openInFinder": "在访达中打开",
+        "openInExplorer": "在资源管理器中打开",
+        "meta": "{{size}} · 交出于 {{handedAt}} · {{expiresAt}} 自动删除",
+        "delete": "删除",
+        "deleteNamed": "删除 {{name}}",
+        "deleteTitle": "删除这个文件？",
+        "deleteDescription": "删除后，插件和已打开的页面都无法再使用「{{name}}」，且无法恢复。",
+        "deleteFailed": "删除失败，请稍后重试。",
+        "cancel": "取消"
+      },
       "library": {
         "title": "持久作品库",
         "loading": "正在读取库信息…",
@@ -15737,6 +15753,7 @@
       "titleRevealPath": "允许 Agent 获取这个媒体文件的本机路径？",
       "count": "{{count}} 个文件",
       "descriptionAttachments": "以下文件在当前任务的工作目录之外。允许后，这些文件会交给该插件处理(它只拿到内容指纹，拿不到路径)。",
+      "descriptionHandoff": "以下文件在当前任务的工作目录之外。允许后，插件会收到这些文件的副本（拿不到路径），副本 7 天未使用后自动删除。",
       "descriptionDir": "以下目录/文件在当前任务的工作目录之外。允许后，其中的文件会交给该插件上传(它只拿到一次性票据，拿不到路径)。",
       "descriptionSaveDir": "以下目录在当前任务的工作目录之外。允许后，该插件可以把下载的文件存入其中(不会覆盖已有文件)。",
       "descriptionRevealPath": "该路径只会在你允许后返回给当前 Agent，并进入对话记录；配对设备可能同步到这条记录。此操作不授予插件读取文件的权限。",

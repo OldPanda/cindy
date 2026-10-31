@@ -7868,6 +7868,22 @@
         "revealed": "Tâche affichée dans la liste des tâches",
         "revealFailed": "Impossible d'afficher la tâche dans la liste des tâches"
       },
+      "handoff": {
+        "title": "Fichiers transmis à ce plugin dans les conversations",
+        "description": "Copies des fichiers que vous avez transmis à ce plugin dans les conversations. Chaque copie est supprimée automatiquement après 7 jours sans utilisation.",
+        "empty": "Aucun fichier n'a encore été transmis à ce plugin dans une conversation.",
+        "loadFailed": "Impossible de charger la liste des fichiers. Réessayez plus tard.",
+        "refresh": "Actualiser",
+        "openInFinder": "Ouvrir dans le Finder",
+        "openInExplorer": "Ouvrir dans l'Explorateur de fichiers",
+        "meta": "{{size}} · Transmis le {{handedAt}} · Supprimé automatiquement le {{expiresAt}}",
+        "delete": "Supprimer",
+        "deleteNamed": "Supprimer {{name}}",
+        "deleteTitle": "Supprimer ce fichier ?",
+        "deleteDescription": "Après suppression, le plugin et les pages ouvertes ne pourront plus utiliser « {{name}} ». Cette action est irréversible.",
+        "deleteFailed": "Impossible de supprimer le fichier. Réessayez plus tard.",
+        "cancel": "Annuler"
+      },
       "library": {
         "title": "Bibliothèque persistante",
         "loading": "Chargement des informations de la bibliothèque…",
@@ -15982,6 +15998,7 @@
       "titleRevealPath": "Autoriser l'Agent à recevoir le chemin local de ce fichier multimédia ?",
       "count": "{{count}} fichiers",
       "descriptionAttachments": "Les fichiers ci-dessous se trouvent en dehors du répertoire de travail de cette session. Si vous l'autorisez, ils seront transmis à ce plugin (il ne reçoit que des empreintes de contenu, jamais les chemins).",
+      "descriptionHandoff": "Les fichiers ci-dessous se trouvent hors du répertoire de travail de cette session. Si vous autorisez, le plugin en reçoit des copies (jamais leurs chemins) ; les copies sont supprimées automatiquement après 7 jours sans utilisation.",
       "descriptionDir": "Le répertoire ou fichier ci-dessous se trouve en dehors du répertoire de travail de cette session. Si vous l'autorisez, ses fichiers seront transmis à ce plugin pour envoi (il ne reçoit qu'un ticket à usage unique, jamais les chemins).",
       "descriptionSaveDir": "Le répertoire ci-dessous se trouve en dehors du répertoire de travail de cette session. Si vous l'autorisez, ce plugin pourra y enregistrer des fichiers téléchargés (les fichiers existants ne sont jamais écrasés).",
       "descriptionRevealPath": "Le chemin n'est renvoyé à l'Agent actuel qu'après votre autorisation et sera ajouté à l'historique de la conversation ; les appareils associés peuvent synchroniser cet historique. Cela n'accorde à aucun plugin l'accès au fichier.",

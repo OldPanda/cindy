@@ -7748,6 +7748,22 @@
         "revealed": "差事已顯於差事錄",
         "revealFailed": "未能令差事顯於差事錄"
       },
+      "handoff": {
+        "title": "對話中交予法器之卷",
+        "description": "此乃君於對話中交予此法器之卷之副本，七日不用則自刪。",
+        "empty": "對話中尚未交卷予此法器。",
+        "loadFailed": "卷之列表讀取未成，請稍後再試。",
+        "refresh": "重整",
+        "openInFinder": "於 Finder 中啟之",
+        "openInExplorer": "於檔案總管中啟之",
+        "meta": "{{size}} · 交於 {{handedAt}} · {{expiresAt}} 自刪",
+        "delete": "刪",
+        "deleteNamed": "刪 {{name}}",
+        "deleteTitle": "刪此卷乎？",
+        "deleteDescription": "刪之，則法器與已開之頁皆不得復用「{{name}}」，且不可復原。",
+        "deleteFailed": "刪除未成，請稍後再試。",
+        "cancel": "罷"
+      },
       "library": {
         "title": "久藏之庫",
         "loading": "方讀庫之資訊…",
@@ -15770,6 +15786,7 @@
       "titleRevealPath": "許 Agent 取此媒體卷於此機之路徑？",
       "count": "{{count}} 卷",
       "descriptionAttachments": "下列之卷在今差事之工作目錄外。許之，則交此法器處之(其唯得內容指紋，不得路徑)。",
+      "descriptionHandoff": "下列之卷在今差事之工作目錄外。許之，則此法器得其副本(不得路徑)，副本七日不用則自刪。",
       "descriptionDir": "下列目錄/卷在今差事之工作目錄外。許之，則其中之卷交此法器上呈(其唯得一次性票據，不得路徑)。",
       "descriptionSaveDir": "下列目錄在今差事之工作目錄外。許之，此法器可將取下之卷存入其中(不覆既有之卷)。",
       "descriptionRevealPath": "此路徑唯於君許之後返予今之 Agent，並入言談錄；配對之裝置或同步此錄。此舉不授法器讀卷之權柄。",
