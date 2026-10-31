@@ -94,8 +94,8 @@ const HEADER_HOVER_ACTION_CLASS = cn(
 const HEADER_ICON_BUTTON_CLASS =
   'flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-[var(--sidebar-list-muted)] transition-colors hover:text-[var(--sidebar-nav-text)]';
 
-/** 收起态头像行:48px 头像 + 8px 间距。 */
-const AVATAR_SLOT_PX = TEAMMATE_AVATAR.strip + TEAMMATE_AVATAR.gap;
+/** 36px 头像居中放在 48px 热区内，留出右下状态点的位置。 */
+const AVATAR_SLOT_PX = TEAMMATE_AVATAR.stripTarget + TEAMMATE_AVATAR.gap;
 const CHAT_PREVIEW_LIMIT = 5;
 
 /**
@@ -572,18 +572,18 @@ export function TeammatesSection() {
                       onClick={() => openChat(entry)}
                       aria-label={label}
                       aria-current={selected ? 'page' : undefined}
-                      className={cn(
-                        'relative isolate flex h-12 w-12 shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      )}
+                      className="relative isolate flex h-12 w-12 shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      {/* 选中:头像下垫一块与展开选中行同色、同 12px 容器圆角的 56px 底板;不画贴形线圈,群头像叠放也不被切。 */}
+                      {/* Preserve the quiet selection plate independently of the smaller portrait. */}
                       {selected ? <span aria-hidden data-teammate-selected className="absolute -inset-1 -z-10 rounded-xl bg-sidebar-item-active" /> : null}
-                      {entry.kind === 'group' ? (
-                        <BotGroupSidebarAvatar members={entry.group.members} compact />
-                      ) : (entry.kind === 'cindy' ? currentCindy?.bot : entry.bot) ? (
-                        <BotAvatar bot={(entry.kind === 'cindy' ? currentCindy?.bot : entry.bot)!} size="strip" />
-                      ) : null}
-                      <TeammateStatusDot status={status} mentioned={mentioned} />
+                      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
+                        {entry.kind === 'group' ? (
+                          <BotGroupSidebarAvatar members={entry.group.members} compact />
+                        ) : (entry.kind === 'cindy' ? currentCindy?.bot : entry.bot) ? (
+                          <BotAvatar bot={(entry.kind === 'cindy' ? currentCindy?.bot : entry.bot)!} size="strip" />
+                        ) : null}
+                        <TeammateStatusDot status={status} mentioned={mentioned} />
+                      </span>
                     </button>
                   </Tip>
                 ))}
@@ -593,11 +593,12 @@ export function TeammatesSection() {
                       type="button"
                       onClick={() => { toggleCollapsed(); setShowAllChats(true); }}
                       aria-label={moreLabel}
-                      className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--surface-chip)] px-1.5 text-11 font-medium tabular-nums text-[var(--sidebar-nav-text)] outline-none hover:bg-sidebar-item-hover focus-visible:ring-2 focus-visible:ring-ring"
+                      className="group/overflow flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-11 font-medium tabular-nums text-[var(--sidebar-nav-text)] outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      +{hidden.length}
-                      <TeammateStatusDot status={aggregateTeammateStatus(hidden.map(item => item.status))}
-                        mentioned={hiddenMentioned} />
+                      <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-chip)] px-1.5 group-hover/overflow:bg-sidebar-item-hover">
+                        +{hidden.length}
+                        <TeammateStatusDot status={aggregateTeammateStatus(hidden.map(item => item.status))} mentioned={hiddenMentioned} />
+                      </span>
                     </button>
                   </Tip>
                 ) : null}

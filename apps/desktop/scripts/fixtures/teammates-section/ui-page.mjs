@@ -26,6 +26,15 @@ export default {
     'src/renderer/features/bots/BotDeleteDialog': 'export const BotDeleteDialog=()=>null;',
   },
   cases: {
+    'group-avatars': {
+      about: 'Collapsed one-to-five-member groups keep their composition and corner-dot space',
+      data: { profiles: [], remoteBots: [], route: '/bots/groups/group-2', groups: [1, 2, 3, 4, 5].map(count => ({
+        id: `group-${count}`, name: `Group ${count}`, replyMode: 'all', speakingMode: 'auto',
+        members: profiles.slice(0, count).map(bot => ({ botId: bot.id, name: bot.name, avatar: '', avatarColor: bot.avatarColor, status: 'active' })),
+        speakingBotIds: ['mate-1'], organizerBotId: 'mate-1', projectDir: null, lastMessage: null,
+        planningBotId: null, openPlan: null, createdAt: count, updatedAt: count,
+      })) },
+    },
     states: {
       about: 'Shared solid-dot states in expanded rows and collapsed overflow',
       data: { profiles: profiles.slice(0, 5).map((bot, index) => ({ ...bot,
@@ -99,6 +108,12 @@ export default {
     },
   },
   async check(page, ui) {
+    if (ui.case === 'group-avatars') {
+      await ui.capture('expanded-groups');
+      await page.getByRole('button', { name: await ui.t('bots.title'), exact: true }).click();
+      await ui.capture('collapsed-groups');
+      return;
+    }
     // Read the painted selection, including the wrapper used by local/Cindy rows.
     const selectedRow = page.locator('[data-sidebar-section="teammates"] [aria-current="page"]').first();
     if (await selectedRow.count()) {
@@ -118,6 +133,7 @@ export default {
       assert.equal(colors.foreground, colors.expectedForeground, 'selection keeps normal text contrast');
     }
     if (ui.case === 'states') {
+      const expandedAvatar = await selectedRow.locator('[aria-hidden="true"]').first().boundingBox();
       for (const state of ['running', 'awaiting', 'done', 'unread', 'error']) {
         const dot = page.locator(`[data-teammate-status="${state}"]`);
         assert.equal(await dot.count(), 1);
@@ -127,7 +143,17 @@ export default {
       await ui.capture('expanded-states');
       await page.getByRole('button', { name: await ui.t('bots.title'), exact: true }).click();
       await page.locator('[data-teammate-status="running"]').first().waitFor();
-      assert.equal(await page.locator('[data-sidebar-section="teammates"]').first().locator('button[aria-current="page"] > [data-teammate-status="awaiting"]').count(), 1, 'selection preserves the pending point');
+      const selected = page.locator('[data-sidebar-section="teammates"]').first().locator('button[aria-current="page"]').first();
+      const dot = selected.locator('[data-teammate-status="awaiting"]');
+      assert.equal(await dot.count(), 1, 'selection preserves the pending point');
+      // Regression: collapsing enlarged the portrait to meet touch-target sizing.
+      // Measure the real rendered portrait and corner dot, independently of its button.
+      const portrait = await selected.locator('[aria-hidden="true"]:not([data-teammate-selected])').first().boundingBox();
+      const target = await selected.boundingBox();
+      const dotBox = await dot.boundingBox();
+      assert.ok(portrait && expandedAvatar && portrait.width < expandedAvatar.width, 'collapsed portrait is smaller than the list portrait');
+      assert.ok(target.width >= 48 && target.height >= 48, 'smaller portrait preserves its touch target');
+      assert.ok(dotBox.x + dotBox.width <= target.x + target.width && dotBox.y + dotBox.height <= target.y + target.height, 'corner dot fits within the reserved target space');
       await ui.capture('collapsed-states');
       return;
     }
@@ -136,7 +162,7 @@ export default {
       const plate = page.locator('button[aria-current="page"] > [data-teammate-selected]');
       await plate.waitFor();
       const box = await plate.boundingBox();
-      assert.ok(box && box.width === 56 && box.height === 56, 'the selection plate is 56px around the 48px avatar');
+      assert.ok(box && box.width === 56 && box.height === 56, 'the selection plate is 56px around the 48px touch target');
       assert.equal(await page.locator('[data-teammate-mention]').count(), 0);
       await ui.capture('collapsed-plain');
       return;
